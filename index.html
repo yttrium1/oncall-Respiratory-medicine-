@@ -1,158 +1,795 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>残業代計算機</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-            background-color: #f9f9f9;
-        }
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-        h1 {
-            text-align: center;
-            color: #333;
-        }
-        label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
-        }
-        input {
-            width: 100%;
-            padding: 8px;
-            margin-bottom: 15px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-        }
-        .rate-display {
-            color: blue;
-            font-size: 0.9em;
-            margin-left: 5px;
-        }
-        button {
-            width: 100%;
-            padding: 10px;
-            background-color: #007BFF;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-        button:hover {
-            background-color: #0056b3;
-        }
-        .result {
-            margin-top: 20px;
-            font-weight: bold;
-            padding: 15px;
-            background: #e7f3ff;
-            border: 1px solid #b3d7ff;
-            border-radius: 4px;
-        }
-        .error {
-            color: red;
-            margin-bottom: 10px;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>内科 日当直希望 | 登録システム</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <style>
+    :root {
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --primary-light: #dbeafe;
+      --accent: #059669;
+      --accent-hover: #047857;
+      --danger: #dc2626;
+      --warning: #f59e0b;
+      --text-primary: #1e293b;
+      --text-secondary: #64748b;
+      --text-muted: #94a3b8;
+      --bg-primary: #ffffff;
+      --bg-secondary: #f8fafc;
+      --bg-tertiary: #f1f5f9;
+      --border: #e2e8f0;
+      --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+      --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+      --radius: 0.5rem;
+      --radius-lg: 0.75rem;
+    }
+
+    * {
+      margin: 0; padding: 0; box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter','Noto Sans JP',-apple-system,BlinkMacSystemFont,sans-serif;
+      background-color: var(--bg-secondary);
+      color: var(--text-primary);
+      line-height: 1.6;
+      min-height: 100vh;
+      padding: 2rem 1rem;
+      font-size: 15px;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    .main-card {
+      background-color: var(--bg-primary);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      margin-bottom: 2rem;
+    }
+
+    .header {
+      background-color: var(--text-primary);
+      color: white;
+      padding: 2.5rem 2rem;
+      text-align: center;
+    }
+
+    .header h1 {
+      font-size: 1.875rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+      letter-spacing: -0.025em;
+    }
+
+    .header p {
+      font-size: 1rem;
+      opacity: 0.9;
+      font-weight: 400;
+    }
+
+    .section {
+      padding: 2rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .section:last-child {
+      border-bottom: none;
+    }
+
+    .section-header {
+      display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;
+    }
+    .section-number {
+      background-color: var(--primary);
+      color: white;
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 600; font-size: 0.875rem;
+      flex-shrink: 0;
+    }
+    .section-title {
+      font-weight: 600; font-size: 1.125rem; color: var(--text-primary);
+    }
+    .section-description {
+      color: var(--text-secondary); font-size: 0.875rem;
+      margin-bottom: 1rem; margin-left: 2.5rem;
+    }
+
+    .form-group {
+      margin-bottom: 1.5rem;
+    }
+    label {
+      display: block; margin-bottom: 0.5rem;
+      font-weight: 500; color: var(--text-primary);
+      font-size: 0.875rem;
+    }
+    select, input, textarea {
+      width: 100%; padding: 0.625rem 0.875rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-family: inherit; font-size: 0.9375rem;
+      background-color: var(--bg-primary); color: var(--text-primary);
+      transition: border-color 0.1s ease, box-shadow 0.1s ease;
+    }
+    select:focus, input:focus, textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
+    }
+    select {
+      cursor: pointer; appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%2364748b' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+      background-position: right 0.875rem center; background-repeat: no-repeat;
+      padding-right: 2.5rem;
+    }
+    optgroup {
+      font-weight: 600; color: var(--text-primary);
+    }
+    option {
+      font-weight: normal; padding: 0.5rem;
+    }
+    textarea {
+      min-height: 100px; resize: vertical;
+    }
+
+    .calendar-wrapper {
+      margin-top: 1rem; border: 1px solid var(--border);
+      border-radius: var(--radius); overflow: hidden;
+      background-color: var(--bg-primary);
+    }
+    .calendar-header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 1rem; background-color: var(--bg-tertiary);
+      border-bottom: 1px solid var(--border);
+    }
+    .calendar-title {
+      font-weight: 600; font-size: 1rem; color: var(--text-primary);
+    }
+    .calendar-nav {
+      display: flex; gap: 0.5rem;
+    }
+    .nav-btn {
+      background-color: var(--bg-primary); border: 1px solid var(--border);
+      color: var(--text-secondary); width: 32px; height: 32px;
+      border-radius: var(--radius); display: flex; align-items: center; justify-content: center;
+      cursor: pointer; transition: all 0.1s ease;
+    }
+    .nav-btn:hover {
+      background-color: var(--bg-tertiary); color: var(--text-primary);
+    }
+    .calendar-grid {
+      display: grid; grid-template-columns: repeat(7, 1fr);
+    }
+    .day-header {
+      padding: 0.75rem 0.25rem; text-align: center;
+      font-weight: 600; font-size: 0.8125rem;
+      background-color: var(--bg-tertiary); color: var(--text-secondary);
+      border-bottom: 1px solid var(--border);
+    }
+    .day-header.sunday {
+      color: var(--danger);
+    }
+    .day-header.saturday {
+      color: var(--primary);
+    }
+    .calendar-cell {
+      border-right: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      padding: 0.25rem; min-height: 48px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .calendar-cell:nth-child(7n) {
+      border-right: none;
+    }
+    .date-btn {
+      width: 100%; height: 100%; min-height: 36px;
+      display: flex; align-items: center; justify-content: center;
+      border: 1px solid transparent; border-radius: var(--radius);
+      background-color: transparent; color: var(--text-primary);
+      font-weight: 500; font-size: 0.875rem; cursor: pointer;
+      transition: transform 0.1s ease, background-color 0.1s ease,
+                  color 0.1s ease, box-shadow 0.1s ease;
+      position: relative;
+    }
+    .date-btn:hover:not(.disabled):not(.selected) {
+      border-color: var(--primary);
+      background-color: rgba(37,99,235,0.05);
+    }
+    .date-btn.selected {
+      background-color: var(--primary); color: white;
+      font-weight: 600; border-color: var(--primary);
+      box-shadow: 0 2px 4px rgba(37,99,235,0.2);
+    }
+    .date-btn.selected.not-preferred {
+      background-color: var(--danger);
+      border-color: var(--danger);
+      box-shadow: 0 2px 4px rgba(220,38,38,0.2);
+    }
+    .date-btn:active:not(.disabled) {
+      transform: scale(0.95);
+    }
+    .date-btn.disabled {
+      color: var(--text-muted);
+      cursor: not-allowed;
+      opacity: 0.5;
+    }
+    .date-btn.disabled::after {
+      content: '';
+      position: absolute; top: 50%; left: 0; right: 0; height: 1px;
+      background-color: var(--text-muted); transform: rotate(-45deg);
+    }
+
+    .weekend-cell {
+      min-height: 64px; flex-direction: column; gap: 0.25rem;
+      padding: 0.375rem 0.25rem;
+    }
+    .duty-btn {
+      width: 100%; padding: 0.25rem;
+      font-size: 0.75rem; min-height: 26px;
+      border-radius: 0.25rem; border: 1px solid var(--border);
+      background-color: var(--bg-primary); cursor: pointer;
+      transition: transform 0.1s ease, background-color 0.1s ease,
+                  color 0.1s ease, box-shadow 0.1s ease;
+      font-weight: 500;
+    }
+    .duty-btn:hover:not(.disabled):not(.selected) {
+      border-color: var(--primary); background-color: rgba(37,99,235,0.05);
+    }
+    .duty-btn.selected {
+      background-color: var(--primary); border-color: var(--primary);
+      color: white; font-weight: 600;
+      box-shadow: 0 2px 4px rgba(37,99,235,0.2);
+    }
+    .duty-btn.selected.not-preferred {
+      background-color: var(--danger); border-color: var(--danger);
+      box-shadow: 0 2px 4px rgba(220,38,38,0.2);
+    }
+    .duty-btn:active:not(.disabled) {
+      transform: scale(0.95);
+    }
+    .duty-btn.disabled {
+      opacity: 0.5; cursor: not-allowed;
+    }
+
+    .empty-cell {
+      background-color: var(--bg-tertiary);
+    }
+    .btn-primary {
+      display: inline-flex; align-items: center; justify-content: center;
+      gap: 0.5rem; background-color: var(--accent); color: white;
+      font-weight: 600; padding: 0.75rem 1.75rem; border-radius: var(--radius);
+      border: none; cursor: pointer; transition: all 0.1s ease;
+      font-size: 0.9375rem; width: 100%;
+    }
+    .btn-primary:hover:not(:disabled) {
+      background-color: var(--accent-hover);
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-md);
+    }
+    .btn-primary:active {
+      transform: translateY(0);
+    }
+    .btn-primary:disabled {
+      opacity: 0.6; cursor: not-allowed;
+    }
+    .success-message {
+      display: none; align-items: center; justify-content: center;
+      gap: 0.5rem; padding: 0.75rem 1.75rem;
+      background-color: var(--accent); color: white;
+      font-weight: 600; border-radius: var(--radius);
+      font-size: 0.9375rem;
+    }
+    .success-message.show {
+      display: flex;
+    }
+    .error-message {
+      color: var(--danger); font-size: 0.8125rem;
+      margin-top: 0.25rem; display: none;
+    }
+    .footer {
+      text-align: center; padding: 2rem 1rem;
+      color: var(--text-secondary); font-size: 0.875rem;
+    }
+    .holiday {
+      background-color: #fee2e2;
+    }
+    .holiday .date-btn:not(.selected) {
+      color: var(--danger);
+    }
+
+    @media (max-width: 640px) {
+      body {
+        padding: 1rem 0.5rem;
+      }
+      .header {
+        padding: 2rem 1.5rem;
+      }
+      .header h1 {
+        font-size: 1.5rem;
+      }
+      .section {
+        padding: 1.5rem;
+      }
+      .calendar-cell {
+        min-height: 42px;
+      }
+      .date-btn {
+        min-height: 32px; font-size: 0.8125rem;
+      }
+      .duty-btn {
+        font-size: 0.6875rem; min-height: 24px;
+      }
+    }
+    @media (hover: none) and (pointer: coarse) {
+      .date-btn:hover:not(.disabled):not(.selected),
+      .duty-btn:hover:not(.disabled):not(.selected) {
+        background-color: transparent; border-color: var(--border);
+      }
+    }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <h1>残業代計算機</h1>
-        <form id="overtimeForm">
-            <div class="error" id="error"></div>
-            <label for="salary">月俸給（円）:</label>
-            <input type="number" id="salary" placeholder="例: 300000" required>
+  <div class="container">
+    <div class="main-card">
+      <div class="header">
+        <h1>内科日当直希望登録</h1>
+        <p>毎月8日が締め切りです</p>
+      </div>
 
-            <label for="weekdayNormalHours">平日普通の労働時間（時間）:
-                <span class="rate-display" id="weekdayNormalRate"></span>
-            </label>
-            <input type="number" id="weekdayNormalHours" placeholder="例: 5" required>
+      <!-- 1. お名前 -->
+      <div class="section">
+        <div class="section-header">
+          <div class="section-number">1</div>
+          <div class="section-title">お名前</div>
+        </div>
+        <div class="form-group">
+          <select id="name-select">
+            <option value="">回答者を選択してください</option>
+            <optgroup label="消化器内科">
+              <option value="西中川">西中川先生</option>
+              <option value="大場">大場先生</option>
+              <option value="土方">土方先生</option>
+              <option value="折原">折原先生</option>
+              <option value="石井">石井先生</option>
+              <option value="松坂">松坂先生</option>
+            </optgroup>
+            <optgroup label="呼吸器内科">
+              <option value="河野">河野先生</option>
+              <option value="松村">松村先生</option>
+              <option value="鈴木">鈴木先生</option>
+              <option value="伊藤">伊藤先生</option>
+              <option value="堀">堀先生</option>
+              <option value="春日">春日先生</option>
+              <option value="三宅">三宅先生</option>
+            </optgroup>
+            <optgroup label="腎臓内科">
+              <option value="杉田">杉田先生</option>
+              <option value="岡田">岡田先生</option>
+              <option value="畠中">畠中先生</option>
+            </optgroup>
+            <optgroup label="循環器内科">
+              <option value="吉玉">吉玉先生</option>
+              <option value="浅原">浅原先生</option>
+              <option value="高亀">高亀先生</option>
+              <option value="和田">和田先生</option>
+              <option value="有上">有上先生</option>
+              <option value="久次米">久次米先生</option>
+            </optgroup>
+            <optgroup label="糖尿病代謝内分泌科">
+              <option value="林">林先生</option>
+              <option value="曹">曹先生</option>
+            </optgroup>
+            <optgroup label="その他">
+              <option value="その他">その他</option>
+            </optgroup>
+          </select>
+          <input id="other-name-input" type="text" placeholder="お名前を入力してください" style="display:none; margin-top: 0.75rem;">
+          <p id="name-error" class="error-message">お名前を選択または入力してください。</p>
+        </div>
+      </div>
 
-            <label for="weekdayNightHours">平日深夜の労働時間（時間）:
-                <span class="rate-display" id="weekdayNightRate"></span>
-            </label>
-            <input type="number" id="weekdayNightHours" placeholder="例: 3" required>
+      <!-- 2. 希望する日 -->
+      <div class="section">
+        <div class="section-header">
+          <div class="section-number">2</div>
+          <div class="section-title">希望する日</div>
+        </div>
+        <p class="section-description">木曜日は循環器医師のみです。</p>
+        <div class="calendar-wrapper preferred">
+          <div class="calendar-header">
+            <button class="nav-btn prev-month"><i class="fas fa-chevron-left"></i></button>
+            <div class="calendar-title">2025年 07月</div>
+            <button class="nav-btn next-month"><i class="fas fa-chevron-right"></i></button>
+          </div>
+          <div class="calendar-grid"></div>
+        </div>
+      </div>
 
-            <label for="holidayNormalHours">休日普通の労働時間（時間）:
-                <span class="rate-display" id="holidayNormalRate"></span>
-            </label>
-            <input type="number" id="holidayNormalHours" placeholder="例: 2" required>
+      <!-- 3. 希望しない日 -->
+      <div class="section">
+        <div class="section-header">
+          <div class="section-number">3</div>
+          <div class="section-title">希望しない日</div>
+        </div>
+        <p class="section-description">翌日外勤・外来のためできない場合も含みます</p>
+        <div class="calendar-wrapper not-preferred">
+          <div class="calendar-header">
+            <button class="nav-btn prev-month"><i class="fas fa-chevron-left"></i></button>
+            <div class="calendar-title">2025年 07月</div>
+            <button class="nav-btn next-month"><i class="fas fa-chevron-right"></i></button>
+          </div>
+          <div class="calendar-grid"></div>
+        </div>
+      </div>
 
-            <label for="holidayNightHours">休日深夜の労働時間（時間）:
-                <span class="rate-display" id="holidayNightRate"></span>
-            </label>
-            <input type="number" id="holidayNightHours" placeholder="例: 1" required>
+      <!-- 4. 日直 or 当直 -->
+      <div class="section">
+        <div class="section-header">
+          <div class="section-number">4</div>
+          <div class="section-title">日直 or 当直</div>
+        </div>
+        <p class="section-description">日直のほうがよい、当直のほうがよい、どちらでもよい、の中から選択してください。</p>
+        <div class="form-group">
+          <label for="duty-type">希望</label>
+          <select id="duty-type" name="duty-type">
+            <option value="">選択してください</option>
+            <option value="日直のほうがよい">日直のほうがよい</option>
+            <option value="当直のほうがよい">当直のほうがよい</option>
+            <option value="どちらでもよい">どちらでもよい</option>
+          </select>
+          <p id="duty-type-error" class="error-message">必須項目です。選択してください。</p>
+        </div>
+      </div>
 
-            <label for="breakHours">休憩時間（時間）:
-                <span class="rate-display" id="breakRate"></span>
-            </label>
-            <input type="number" id="breakHours" placeholder="例: 1" required>
+      <!-- 5. コメント -->
+      <div class="section">
+        <div class="section-header">
+          <div class="section-number">5</div>
+          <div class="section-title">コメント</div>
+        </div>
+        <p class="section-description">特別な希望やメッセージがあれば入力してください。</p>
+        <div class="form-group">
+          <textarea id="comment-input" placeholder="コメントを入力してください"></textarea>
+        </div>
+      </div>
 
-            <button type="button" onclick="calculateOvertimePay()">計算する</button>
-        </form>
-
-        <div class="result" id="result"></div>
+      <!-- 6. メールアドレス -->
+      <div class="section">
+        <div class="section-header">
+          <div class="section-number">6</div>
+          <div class="section-title">メールアドレス</div>
+        </div>
+        <p class="section-description">回答結果を後で確認できます。</p>
+        <div class="form-group">
+          <input type="email" id="email-input" placeholder="your.email@example.com">
+        </div>
+        <button id="submit-btn" class="btn-primary">
+          <i class="fas fa-paper-plane"></i>
+          送信する
+        </button>
+        <div id="success-message" class="success-message">
+          <i class="fas fa-check-circle"></i>
+          送信完了しました
+        </div>
+      </div>
     </div>
 
-    <script>
-        function calculateOvertimePay() {
-            const salary = parseFloat(document.getElementById('salary').value);
-            const weekdayNormalHours = parseFloat(document.getElementById('weekdayNormalHours').value);
-            const weekdayNightHours = parseFloat(document.getElementById('weekdayNightHours').value);
-            const holidayNormalHours = parseFloat(document.getElementById('holidayNormalHours').value);
-            const holidayNightHours = parseFloat(document.getElementById('holidayNightHours').value);
-            const breakHours = parseFloat(document.getElementById('breakHours').value);
+    <div class="footer">
+      <p>内科当直システム</p>
+    </div>
+  </div>
 
-            const errorDiv = document.getElementById('error');
-            const resultDiv = document.getElementById('result');
+  <script type="text/javascript" src="https://cdn.emailjs.com/dist/email.min.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // EmailJS初期化（service_id と public_key は環境に合わせて差し替えてください）
+      (function(){
+        emailjs.init("XhqJVhB68ooIcAMCD");
+      })();
 
-            errorDiv.textContent = '';
-            resultDiv.textContent = '';
+      // -----------------------
+      // 名前と「その他」の処理
+      // -----------------------
+      const nameSelect = document.getElementById('name-select');
+      const otherNameInput = document.getElementById('other-name-input');
+      const nameError = document.getElementById('name-error');
 
-            if ([salary, weekdayNormalHours, weekdayNightHours, holidayNormalHours, holidayNightHours, breakHours].some(isNaN)) {
-                errorDiv.textContent = '全ての入力欄を正しく入力してください。';
-                return;
+      nameSelect.addEventListener('change', function() {
+        if (this.value === 'その他') {
+          otherNameInput.style.display = 'block';
+        } else {
+          otherNameInput.style.display = 'none';
+        }
+      });
+
+      // -----------------------
+      // 日直・当直の必須処理
+      // -----------------------
+      const dutyTypeSelect = document.getElementById('duty-type');
+      const dutyTypeError = document.getElementById('duty-type-error');
+
+      // -----------------------
+      // カレンダー関連処理
+      // -----------------------
+      const monthTitles = document.querySelectorAll('.calendar-title');
+      const calendarGrids = document.querySelectorAll('.calendar-grid');
+
+      // 表示する初期月（例として2025年7月に固定表示）
+      // 実運用では動的に設定するなど調整してください
+      let currentMonth = new Date(2025, 6, 1); // 6=7月（0始まりのため）
+
+      // 祝日リスト（例）
+      const holidays = [
+        "2024-01-01","2024-01-08","2024-02-11","2024-03-20","2024-04-29",
+        "2024-05-03","2024-05-04","2024-05-05","2024-05-06","2024-07-15",
+        "2024-08-11","2024-08-12","2024-09-16","2024-09-22","2024-09-23",
+        "2024-10-14","2024-11-03","2024-11-04","2024-11-23","2024-12-30",
+        "2024-12-31","2025-01-01","2025-01-02","2025-01-03","2025-01-13",
+        "2025-02-11","2025-02-24","2025-03-20","2025-04-29","2025-05-03",
+        "2025-05-04","2025-05-05","2025-05-06","2025-07-21","2025-08-11",
+        "2025-09-15","2025-09-23","2025-10-13","2025-11-03","2025-11-23",
+        "2025-11-24","2026-01-12","2026-02-11","2026-03-20"
+      ];
+
+      // 利用不可能日（「日直のみ」を不可にしたい日）
+      // 例: "2025-07-05", "2025-08-30", "2025-09-06", "2025-10-04", ...
+      const specificUnavailableDates = [
+        "2025-07-05","2025-08-30","2025-09-06","2025-10-04","2025-11-29","2025-12-14"
+      ];
+
+      // 第1,3,5水曜を全部不可にするロジック（例）ここでは継続利用
+      const isUnavailableWednesday = (date) => {
+        if (date.getDay() !== 3) return false;
+        const firstDayOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);
+        const dayOfWeekOfFirstDay = firstDayOfMonth.getDay();
+        // その月の「最初の水曜日」が何日か
+        const firstWednesdayDate = 1 + (3 - dayOfWeekOfFirstDay + 7) % 7;
+        // dateが「第何水曜」か算出
+        const weekNumber = Math.ceil((date.getDate() - firstWednesdayDate) / 7) + 1;
+        return (weekNumber === 1 || weekNumber === 3 || weekNumber === 5);
+      };
+
+      // タイムゾーンずれ対策：YYYY-MM-DD 形式の文字列をローカル時刻ベースで返す
+      function formatDateForComparison(date) {
+        const yyyy = date.getFullYear();
+        const mm = String(date.getMonth() + 1).padStart(2, '0');
+        const dd = String(date.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+      }
+
+      // カレンダー全体で「日付そのものが完全不可」になる条件
+      // → 今回は「第1,3,5水曜が不可」以外はOKとする
+      //    (もし特定の平日ごとに「日直のみ不可」が必要ならさらに分岐を追加)
+      function isFullyUnavailableDate(date) {
+        return isUnavailableWednesday(date);
+      }
+
+      // 「日直のみ不可」にしたい日付かどうか
+      function isDayShiftUnavailable(date) {
+        const dateString = formatDateForComparison(date);
+        // 上記の specificUnavailableDates に載っている日なら「日直のみ不可」
+        return specificUnavailableDates.includes(dateString);
+      }
+
+      function isHoliday(date) {
+        const dateString = formatDateForComparison(date);
+        return holidays.includes(dateString);
+      }
+
+      // カレンダーを更新
+      function updateCalendar(month) {
+        monthTitles.forEach(title => {
+          title.textContent = `${month.getFullYear()}年 ${month.getMonth() + 1}月`;
+        });
+
+        calendarGrids.forEach((grid) => {
+          const isPreferredCalendar = grid.closest('.calendar-wrapper').classList.contains('preferred');
+          grid.innerHTML = '';
+
+          // 曜日ヘッダー
+          const daysOfWeek = ['日','月','火','水','木','金','土'];
+          daysOfWeek.forEach((day, index) => {
+            let className = 'day-header';
+            if (index === 0) className += ' sunday';
+            if (index === 6) className += ' saturday';
+            grid.innerHTML += `<div class="${className}">${day}</div>`;
+          });
+
+          const firstDay = new Date(month.getFullYear(), month.getMonth(), 1).getDay();
+          const daysInMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
+
+          // 空のセル
+          for (let i = 0; i < firstDay; i++) {
+            grid.innerHTML += '<div class="calendar-cell empty-cell"></div>';
+          }
+
+          // 日付セル
+          for (let dayNum = 1; dayNum <= daysInMonth; dayNum++) {
+            const dateObj = new Date(month.getFullYear(), month.getMonth(), dayNum);
+            const dayOfWeek = dateObj.getDay();
+            const isFullUnavailable = isFullyUnavailableDate(dateObj);
+            const holidayFlag = isHoliday(dateObj);
+            const dayShiftNG = isDayShiftUnavailable(dateObj);
+
+            let cellClass = 'calendar-cell';
+            if (holidayFlag) {
+              cellClass += ' holiday';
             }
 
-            const baseHourlyRate = Math.floor((salary * 1.12 + 184700) / 162);
-            const weekdayNormalRate = Math.floor(baseHourlyRate * 1.25);
-            const weekdayNightRate = Math.floor(baseHourlyRate * 1.5);
-            const holidayNormalRate = Math.floor(baseHourlyRate * 1.35);
-            const holidayNightRate = Math.floor(baseHourlyRate * 1.6);
+            // 週末 or 祝日 ⇒ 「日直」「当直」ボタンの2種類
+            if (dayOfWeek === 0 || dayOfWeek === 6 || holidayFlag) {
+              cellClass += ' weekend-cell';
 
-            document.getElementById('weekdayNormalRate').textContent = `¥${weekdayNormalRate}`;
-            document.getElementById('weekdayNightRate').textContent = `¥${weekdayNightRate}`;
-            document.getElementById('holidayNormalRate').textContent = `¥${holidayNormalRate}`;
-            document.getElementById('holidayNightRate').textContent = `¥${holidayNightRate}`;
-            document.getElementById('breakRate').textContent = `¥${baseHourlyRate}`;
+              // 「日直」ボタンを押せないかどうか
+              // 1) 全部不可の場合 ⇒ 両方 disable
+              // 2) 日直のみ不可の場合 ⇒ 日直だけ disable, 当直は可能
+              // 3) 通常 ⇒ disableなし
+              let dayBtnDisabled = '';
+              let dutyBtnDisabled = '';
 
-            const weekdayNormalPay = weekdayNormalRate * weekdayNormalHours;
-            const weekdayNightPay = weekdayNightRate * weekdayNightHours;
-            const holidayNormalPay = holidayNormalRate * holidayNormalHours;
-            const holidayNightPay = holidayNightRate * holidayNightHours;
-            const breakPay = baseHourlyRate * breakHours;
+              if (isPreferredCalendar && isFullUnavailable) {
+                // 全不可 (希望カレンダーで該当の場合はボタン無効)
+                dayBtnDisabled = ' disabled';
+                dutyBtnDisabled = ' disabled';
+              } else if (isPreferredCalendar && dayShiftNG) {
+                // 「日直のみ」不可 (当直ボタンは可能)
+                dayBtnDisabled = ' disabled';
+                dutyBtnDisabled = '';
+              }
 
-            const totalPay = weekdayNormalPay + weekdayNightPay + holidayNormalPay + holidayNightPay + breakPay;
+              grid.innerHTML += `
+                <div class="${cellClass}">
+                  <button class="duty-btn${dayBtnDisabled}" data-date="${dayNum}日">${dayNum}日</button>
+                  <button class="duty-btn${dutyBtnDisabled}" data-date="${dayNum}当">${dayNum}当</button>
+                </div>
+              `;
+            } else {
+              // 平日：1ボタン表示のみ
+              // isFullUnavailable が true なら disable
+              let disabled = (isPreferredCalendar && isFullUnavailable) ? ' disabled' : '';
+              // 「日直のみ不可」の日は基本週末前提なのでここでは適用しないが、
+              // 平日に「日直のみ不可」を設定したい場合はさらに分岐を追加
 
-            resultDiv.innerHTML = `
-                <p>平日普通残業: ¥${weekdayNormalPay.toLocaleString()}</p>
-                <p>平日深夜残業: ¥${weekdayNightPay.toLocaleString()}</p>
-                <p>休日普通残業: ¥${holidayNormalPay.toLocaleString()}</p>
-                <p>休日深夜残業: ¥${holidayNightPay.toLocaleString()}</p>
-                <p>休憩時間給料: ¥${breakPay.toLocaleString()}</p>
-                <p><strong>総支給額: ¥${totalPay.toLocaleString()}</strong></p>
-            `;
+              grid.innerHTML += `
+                <div class="${cellClass}">
+                  <button class="date-btn${disabled}" data-date="${dayNum}">${dayNum}</button>
+                </div>`;
+            }
+          }
+
+          // ボタン押下時の動作
+          grid.querySelectorAll('.date-btn:not(.disabled), .duty-btn:not(.disabled)').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+              e.preventDefault();
+              // 選択状態の切り替え
+              this.classList.toggle('selected');
+              // 「希望しない日」カレンダーなら .not-preferred を付与
+              if (!isPreferredCalendar) {
+                this.classList.toggle('not-preferred');
+              }
+              // タップフィードバック
+              this.style.transform = 'scale(0.95)';
+              setTimeout(() => {
+                this.style.transform = '';
+              }, 100);
+            });
+          });
+        });
+      }
+
+      updateCalendar(currentMonth);
+
+      // 月のナビゲーション（例：クリックで前後の月に移動）
+      document.querySelectorAll('.prev-month').forEach(button => {
+        button.addEventListener('click', function() {
+          currentMonth.setMonth(currentMonth.getMonth() - 1);
+          updateCalendar(currentMonth);
+        });
+      });
+      document.querySelectorAll('.next-month').forEach(button => {
+        button.addEventListener('click', function() {
+          currentMonth.setMonth(currentMonth.getMonth() + 1);
+          updateCalendar(currentMonth);
+        });
+      });
+
+      // -----------------------
+      // 送信ボタン処理
+      // -----------------------
+      const submitBtn = document.getElementById('submit-btn');
+      const successMessage = document.getElementById('success-message');
+
+      submitBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        
+        // (1) 名前のチェック
+        let name = nameSelect.value;
+        if (name === 'その他') {
+          name = otherNameInput.value.trim();
         }
-    </script>
+        if (!name) {
+          nameError.style.display = 'block';
+          return;
+        } else {
+          nameError.style.display = 'none';
+        }
+
+        // (2) 日直・当直チェック
+        let dutyType = dutyTypeSelect.value;
+        if (!dutyType) {
+          dutyTypeError.style.display = 'block';
+          dutyTypeSelect.focus();
+          return;
+        } else {
+          dutyTypeError.style.display = 'none';
+        }
+
+        // (3) カレンダー選択結果取得
+        const comment = document.getElementById('comment-input').value.trim();
+        const preferredDates = Array.from(document.querySelectorAll('.preferred .selected'))
+                                    .map(el => el.getAttribute('data-date'));
+        const notPreferredDates = Array.from(document.querySelectorAll('.not-preferred .selected'))
+                                       .map(el => el.getAttribute('data-date'));
+        const email = document.getElementById('email-input').value.trim();
+
+        // ボタンを無効化
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 送信中...';
+
+        // EmailJS送信
+        emailjs.send("service_v7cenku", "template_rm69kao", {
+          name: name,
+          comment: comment,
+          duty_type: dutyType,
+          preferred_dates: preferredDates.join(', '),
+          not_preferred_dates: notPreferredDates.join(', '),
+          email: email
+        }).then(function(response) {
+          // 成功時
+          submitBtn.style.display = 'none';
+          successMessage.classList.add('show');
+
+          setTimeout(() => {
+            alert(
+              `送信が完了しました。\n\n` +
+              `回答者：${name}\n` +
+              `希望(日)：${preferredDates.join(', ')}\n` +
+              `希望しない日：${notPreferredDates.join(', ')}\n` +
+              `日直／当直：${dutyType}`
+            );
+            
+            // リセット動作
+            setTimeout(() => {
+              submitBtn.style.display = 'flex';
+              submitBtn.disabled = false;
+              submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> 送信する';
+              successMessage.classList.remove('show');
+            }, 2000);
+          }, 500);
+
+        }, function(error) {
+          // 失敗時
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> エラー';
+          
+          setTimeout(() => {
+            submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> 送信する';
+          }, 3000);
+          
+          alert('送信に失敗しました。もう一度お試しください。\nエラーが続く場合は、運営までご連絡ください。');
+        });
+      });
+    });
+  </script>
 </body>
 </html>
