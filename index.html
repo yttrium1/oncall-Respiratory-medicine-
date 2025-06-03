@@ -814,35 +814,55 @@
             minute: '2-digit'
           });
 
+          // 全医師リスト（未提出者カウント用 - 吉玉先生は除外）
+          const allDoctors = [
+            '西中川', '大場', '土方', '折原', '松坂', '石井', // 消化器内科
+            '杉田', '岡田', '畠中', // 腎臓内科
+            '河野', '松村', '鈴木', '伊藤', '堀', '春日', '三宅', // 呼吸器内科
+            '林', '曹', // 糖尿病代謝内分泌科
+            '浅原', '高亀', '和田', '有上', '久次米' // 循環器内科（吉玉は選択肢にはあるがカウント対象外）
+          ];
+
+          // 未提出者を計算
+          const notSubmittedDoctors = allDoctors.filter(doctor => !submittedDoctors.includes(doctor));
+          const totalDoctors = allDoctors.length;
+
           if (submittedDoctors.length === 0) {
             this.submissionDisplay.innerHTML = `
               <div class="submission-content">
                 <div class="submission-stats">
                   <div class="stat-item">
                     <i class="fas fa-info-circle" style="color: var(--text-muted);"></i>
-                    <span>まだ提出者はいません</span>
+                    <span>提出済み: 0名 / 未提出: ${totalDoctors}名</span>
                   </div>
+                </div>
+                <div class="submitted-doctors">
+                  <strong style="color: var(--warning);">未提出者:</strong> ${notSubmittedDoctors.join('、')}
                 </div>
                 <div class="last-updated">最終更新: ${currentTime}</div>
               </div>
             `;
           } else {
-            // 部署別に分類
+            // 部署別に分類（吉玉先生は選択肢にはあるがカウント対象外）
             const departments = {
               '消化器内科': ['西中川', '大場', '土方', '折原', '石井', '松坂'],
               '呼吸器内科': ['河野', '松村', '鈴木', '伊藤', '堀', '春日', '三宅'],
               '腎臓内科': ['杉田', '岡田', '畠中'],
-              '循環器内科': ['吉玉', '浅原', '高亀', '和田', '有上', '久次米'],
+              '循環器内科': ['浅原', '高亀', '和田', '有上', '久次米'], // 吉玉は部署統計からも除外
               '糖尿病代謝内分泌科': ['林', '曹']
             };
 
             let departmentSummary = [];
             for (const [dept, doctors] of Object.entries(departments)) {
               const submittedInDept = doctors.filter(doctor => submittedDoctors.includes(doctor));
-              if (submittedInDept.length > 0) {
-                departmentSummary.push(`${dept}: ${submittedInDept.length}名`);
+              const totalInDept = doctors.length;
+              if (submittedInDept.length > 0 || totalInDept > 0) {
+                departmentSummary.push(`${dept}: ${submittedInDept.length}/${totalInDept}名`);
               }
             }
+
+            // 進捗率を計算
+            const progressPercentage = Math.round((submittedDoctors.length / totalDoctors) * 100);
 
             this.submissionDisplay.innerHTML = `
               <div class="submission-content">
@@ -850,7 +870,8 @@
                   <div class="stat-item">
                     <i class="fas fa-check-circle" style="color: var(--accent);"></i>
                     <span>提出完了:</span>
-                    <span class="stat-number">${submittedDoctors.length}名</span>
+                    <span class="stat-number">${submittedDoctors.length}/${totalDoctors}名</span>
+                    <span style="color: var(--accent); font-weight: 600;">(${progressPercentage}%)</span>
                   </div>
                   ${departmentSummary.length > 0 ? `
                     <div class="stat-item">
@@ -859,9 +880,23 @@
                     </div>
                   ` : ''}
                 </div>
-                <div class="submitted-doctors">
-                  <strong>提出済み:</strong> ${submittedDoctors.join('、')}
-                </div>
+                
+                ${submittedDoctors.length > 0 ? `
+                  <div class="submitted-doctors" style="margin-bottom: 0.75rem;">
+                    <strong style="color: var(--accent);">提出済み:</strong> ${submittedDoctors.join('、')}
+                  </div>
+                ` : ''}
+                
+                ${notSubmittedDoctors.length > 0 ? `
+                  <div class="submitted-doctors">
+                    <strong style="color: var(--warning);">未提出者:</strong> ${notSubmittedDoctors.join('、')}
+                  </div>
+                ` : `
+                  <div class="submitted-doctors">
+                    <strong style="color: var(--accent);"><i class="fas fa-star"></i> 全員提出完了!</strong>
+                  </div>
+                `}
+                
                 <div class="last-updated">最終更新: ${currentTime}</div>
               </div>
             `;
