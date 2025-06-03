@@ -709,7 +709,7 @@
       class SubmissionTracker {
         constructor() {
           // Google Apps Script のWebアプリURL（デプロイ後に取得したURLに変更）
-          this.API_URL = 'https://script.google.com/macros/s/AKfycbyjoymzGDJGP_hlhFn4bI2Mp4mex_fbtJlGEtdWN3KvjIyN-qSTHaouaAFt5QeoJTA/exec';
+          this.API_URL = 'https://script.google.com/macros/s/AKfycbxI4-p5JlIVqzlxvbYnMOYucj1dmWgnqw6YWrCsuXZxwvAMf3erxt46FWeu7ELKvJYJ/exec';
           this.isLoading = false;
           this.pollInterval = null; // 定期更新用
           this.submissionDisplay = document.getElementById('submission-display');
@@ -772,13 +772,13 @@
           }
         }
 
-        // 提出を記録（B列に追加）
-        async recordSubmission(doctorName) {
+        // 提出を記録（全ての情報をスプレッドシートに記録）
+        async recordSubmission(submissionData) {
           if (this.isLoading) return { success: false };
           
           try {
             this.isLoading = true;
-            console.log('提出を記録中:', doctorName);
+            console.log('提出を記録中:', submissionData);
             
             const response = await fetch(this.API_URL, {
               method: 'POST',
@@ -787,7 +787,7 @@
               },
               body: JSON.stringify({
                 action: 'recordSubmission',
-                doctor: doctorName
+                data: submissionData
               })
             });
             
@@ -1247,21 +1247,31 @@
           try {
             // EmailJS送信
             const response = await emailjs.send("service_v7cenku", "template_rm69kao", {
-              name,
-              comment,
-              duty_type: dutyType,
+              name: name,
+              comment: comment,
+              duty_type: dutyType,  // この行を確認
               preferred_dates: preferredDates.join(', '),
               not_preferred_dates: notPreferredDates.join(', '),
-              email
+              email: email
             });
 
             // 送信成功時の処理
             console.log('EmailJS送信成功:', response);
             
-            // スプレッドシートのB列に提出者を記録
+            // スプレッドシートに全ての情報を記録
             try {
-              await submissionTracker.recordSubmission(name);
-              console.log('スプレッドシート記録完了:', name);
+              const submissionData = {
+                name: name,
+                preferredDates: preferredDates.join(', '),
+                notPreferredDates: notPreferredDates.join(', '),
+                email: email,
+                dutyType: dutyType,
+                comment: comment,
+                timestamp: new Date().toISOString()
+              };
+              
+              await submissionTracker.recordSubmission(submissionData);
+              console.log('スプレッドシート記録完了:', submissionData);
               
               // 即座に提出状況を更新
               setTimeout(async () => {
