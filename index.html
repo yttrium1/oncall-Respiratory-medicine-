@@ -1,4 +1,687 @@
-<!DOCTYPE html>
+// HTMLの選択肢から全医師リストを取得
+        getAllDoctorsFromSelect() {
+          const nameSelect = document.getElementById('name-select');
+          if (!nameSelect) return [];
+          
+          const allDoctors = [];
+          const options = nameSelect.querySelectorAll('option');
+          
+          options.forEach(option => {
+            if (option.value && option.value !== '' && option.value !== 'その他') {
+              allDoctors.push(option.value);
+            }
+          });
+          
+          console.log('全医師リスト:', allDoctors);
+          return allDoctors;
+        }
+
+        // 提出義務のある医師リストを取得（吉玉・久次米先生を除く）
+        getRequiredDoctors() {
+          const allDoctors = this.getAllDoctorsFromSelect();
+          const requiredDoctors = allDoctors.filter(doctor => 
+            !this.EXEMPTED_DOCTORS.includes(doctor)
+          );
+          
+          console.log('提出義務のある医師:', requiredDoctors);
+          console.log('提出義務対象外:', this.EXEMPTED_DOCTORS);
+          return requiredDoctors;
+        }
+
+        // ローディング表示を開始
+        showLoading(message = '提出状況を読み込み中') {
+          const nameSelect = document.getElementById('name-select');
+          const nameSelectGroup = nameSelect.parentNode;
+          
+          // 既存のローディング表示を削除
+          const existingLoading = document.getElementById('loading-container');
+          if (existingLoading) {
+            existingLoading.remove();
+          }
+          
+          // 名前選択をローディング状態にする
+          nameSelect.classList.add('name-select-loading');
+          
+          // ローディングコンテナを作成
+          const loadingDiv = document.createElement('div');
+          loadingDiv.id = 'loading-container';
+          loadingDiv.className = 'loading-container show';
+          
+          // ランダムなローディングスタイルを選択
+          const loadingStyles = [
+            this.createSpinnerLoading(message),
+            this.createPulseLoading(message),
+            this.createSkeletonLoading(message)
+          ];
+          
+          const randomStyle = loadingStyles[Math.floor(Math.random() * loadingStyles.length)];
+          loadingDiv.innerHTML = randomStyle;
+          
+          nameSelectGroup.appendChild(loadingDiv);
+          
+          console.log('ローディング表示開始:', message);
+        }
+
+        // スピナー式ローディング
+        createSpinnerLoading(message) {
+          return `
+            <div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; color: var(--text-secondary);">
+              <div class="spinner"></div>
+              <span>${message}...</span>
+            </div>
+            <div style="margin-top: 0.5rem; font-size: 0.75rem; color: var(--text-muted);">
+              数秒お待ちください
+            </div>
+          `;
+        }
+
+        // パルス式ローディング
+        createPulseLoading(message) {
+          return `
+            <div style="color: var(--text-secondary); text-align: center;">
+              <div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                <i class="fas fa-database" style="color: var(--primary);"></i>
+                <span>${message}</span>
+                <div style="display: flex; gap: 2px;">
+                  <div class="pulse-dot"></div>
+                  <div class="pulse-dot"></div>
+                  <div class="pulse-dot"></div>
+                </div>
+              </div>
+              <div style="font-size: 0.75rem; color: var(--text-muted);">
+                スプレッドシートから最新情報を取得中
+              </div>
+            </div>
+          `;
+        }
+
+        // スケルトン式ローディング
+        createSkeletonLoading(message) {
+          return `
+            <div style="color: var(--text-secondary);">
+              <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem;">
+                <i class="fas fa-users" style="color: var(--primary);"></i>
+                <span>${message}...</span>
+              </div>
+              <div style="margin-bottom: 0.5rem;">
+                <div class="skeleton-item" style="width: 60%;"></div>
+                <div class="skeleton-item" style="width: 40%;"></div>
+                <div class="skeleton-item" style="width: 80%;"></div>
+              </div>
+              <div style="font-size: 0.75rem; color: var(--text-muted);">
+                まもなく完了します
+              </div>
+            </div>
+          `;
+        }
+
+        // ローディング表示を終了
+        hideLoading() {
+          const nameSelect = document.getElementById('name-select');
+          const loadingContainer = document.getElementById('loading-container');
+          
+          // 名前選択のローディング状態を解除
+          nameSelect.classList.remove('name-select-loading');
+          
+          // ローディングコンテナを削除（アニメーション付き）
+          if (loadingContainer) {
+            loadingContainer.style.opacity = '0';
+            loadingContainer.style.transform = 'translateY(-10px)';
+            loadingContainer.style.transition = 'all 0.3s ease';
+            
+            setTimeout(() => {
+              if (loadingContainer.parentNode) {
+                loadingContainer.remove();
+              }
+            }, 300);
+          }
+          
+          console.log('ローディング表示終了');
+        }
+
+        // 提出済み医師リストを取得（ローディング付き）
+        async getSubmittedDoctors() {
+          if (this.isLoading) return [];
+          
+          try {
+            this.isLoading = true;
+            console.log('提出状況を取得中...');
+            
+            const response = await fetch(`${this.API_URL}?action=getSubmitted&timestamp=${Date.now()}`);
+            
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            console.log('提出状況データ:', data);
+            
+            return data.submitted || [];
+          } catch (error) {
+            console.error('提出状況取得エラー:', error);
+            return [];
+          } finally {
+            this.isLoading = false;
+          }
+        }
+
+        // 提出を記録（B列に追加）
+        async recordSubmission(doctorName) {
+          if (this.isLoading) return { success: false };
+          
+          try {
+            this.isLoading = true;
+            console.log('提出を記録中:', doctorName);
+            
+            const response = await fetch(this.API_URL, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                action: 'recordSubmission',
+                doctor: doctorName
+              })
+            });
+            
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const result = await response.json();
+            console.log('提出記録結果:', result);
+            
+            return result;
+          } catch (error) {
+            console.error('提出記録エラー:', error);
+            return { success: false, error: error.toString() };
+          } finally {
+            this.isLoading = false;
+          }
+        }
+
+        // 名前選択肢をリアルタイム更新（ローディングエフェクト付き）
+        async updateNameOptions() {
+          try {
+            // ローディング表示開始
+            this.showLoading('提出状況を確認中');
+            
+            // 少し遅延を追加してローディング表示を見せる
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            const submittedDoctors = await this.getSubmittedDoctors();
+            const nameSelect = document.getElementById('name-select');
+            
+            if (!nameSelect) return;
+            
+            // 全ての option 要素を更新
+            const options = nameSelect.querySelectorAll('option');
+            
+            options.forEach(option => {
+              if (option.value && option.value !== 'その他') {
+                const doctorName = option.value;
+                
+                // 既存の「（提出済み）」表示をリセット
+                let originalText = option.textContent;
+                if (originalText.includes('（提出済み）')) {
+                  originalText = originalText.replace('（提出済み）', '');
+                }
+                option.textContent = originalText;
+                option.style.color = '';
+                option.style.fontStyle = '';
+                
+                // 提出済みかチェック（呼び捨て名で照合）
+                if (submittedDoctors.includes(doctorName)) {
+                  // 提出済みの場合、「（提出済み）」を追加
+                  option.textContent = originalText.replace('先生', '先生（提出済み）');
+                  option.style.color = '#94a3b8'; // グレーアウト
+                  option.style.fontStyle = 'italic';
+                }
+                
+                // 吉玉・久次米先生は常に提出済み表示（緑色）
+                if (this.EXEMPTED_DOCTORS.includes(doctorName)) {
+                  option.textContent = originalText.replace('先生', '先生（提出済み）');
+                  option.style.color = '#059669'; // 緑色
+                  option.style.fontStyle = 'italic';
+                }
+              }
+            });
+            
+            // ローディング表示終了
+            this.hideLoading();
+            
+            // 少し遅延してから提出状況を表示
+            setTimeout(() => {
+              this.displayEnhancedSubmissionStatus(submittedDoctors);
+            }, 200);
+            
+            console.log('提出済み医師リスト更新完了:', submittedDoctors);
+          } catch (error) {
+            console.error('名前選択肢更新エラー:', error);
+            this.hideLoading();
+            this.showErrorMessage('提出状況の読み込みに失敗しました');
+          }
+        }
+
+        // エラーメッセージ表示
+        showErrorMessage(message) {
+          const nameSelect = document.getElementById('name-select');
+          const nameSelectGroup = nameSelect.parentNode;
+          
+          const errorDiv = document.createElement('div');
+          errorDiv.className = 'loading-container show';
+          errorDiv.style.backgroundColor = '#fef2f2';
+          errorDiv.style.borderColor = '#ef4444';
+          errorDiv.style.color = '#dc2626';
+          
+          errorDiv.innerHTML = `
+            <div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+              <i class="fas fa-exclamation-triangle"></i>
+              <span>${message}</span>
+            </div>
+            <div style="margin-top: 0.5rem; font-size: 0.75rem;">
+              手動更新ボタンをお試しください
+            </div>
+          `;
+          
+          nameSelectGroup.appendChild(errorDiv);
+          
+          // 3秒後に自動で削除
+          setTimeout(() => {
+            if (errorDiv.parentNode) {
+              errorDiv.remove();
+            }
+          }, 3000);
+        }
+
+        // 提出状況を画面に表示（拡張版：提出率・未提出者付き）
+        displayEnhancedSubmissionStatus(submittedDoctors) {
+          // 既存の状況表示を削除
+          const existingStatus = document.getElementById('submission-status');
+          if (existingStatus) {
+            existingStatus.remove();
+          }
+          
+          // 提出義務のある医師リストを取得
+          const requiredDoctors = this.getRequiredDoctors();
+          
+          // 提出義務のある医師の中で実際に提出済みの医師
+          const actualSubmitted = submittedDoctors.filter(doctor => 
+            requiredDoctors.includes(doctor)
+          );
+          
+          // 未提出の医師（提出義務があるが提出していない）
+          const notSubmittedDoctors = requiredDoctors.filter(doctor => 
+            !submittedDoctors.includes(doctor)
+          );
+          
+          // 提出率を計算
+          const totalRequired = requiredDoctors.length;
+          const submittedCount = actualSubmitted.length;
+          const submissionRate = totalRequired > 0 ? Math.round((submittedCount / totalRequired) * 100) : 0;
+          
+          // 提出率に応じたクラスを決定
+          let rateClass = 'low';
+          if (submissionRate >= 80) rateClass = 'high';
+          else if (submissionRate >= 50) rateClass = 'medium';
+          
+          const statusDiv = document.createElement('div');
+          statusDiv.id = 'submission-status';
+          statusDiv.className = 'submission-status';
+          
+          // アニメーション付きで表示
+          statusDiv.style.opacity = '0';
+          statusDiv.style.transform = 'translateY(10px)';
+          statusDiv.style.transition = 'all 0.4s ease';
+          
+          // 提出済み医師の分類
+          const exemptedSubmitted = submittedDoctors.filter(doctor => 
+            this.EXEMPTED_DOCTORS.includes(doctor)
+          );
+          
+          let statusHTML = `
+            <!-- ヘッダー -->
+            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 1px solid #e2e8f0;">
+              <i class="fas fa-chart-pie" style="color: var(--accent);"></i>
+              <strong>提出状況</strong>
+              <span style="margin-left: auto; font-size: 0.75rem;">${new Date().toLocaleTimeString()}</span>
+            </div>
+          
+            <!-- 提出率表示 -->
+            <div style="margin-bottom: 1rem;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <span style="font-weight: 600;">提出率</span>
+                <span style="font-weight: 700; font-size: 1.1rem; color: ${rateClass === 'high' ? 'var(--accent)' : rateClass === 'medium' ? 'var(--warning)' : 'var(--danger)'};">
+                  ${submissionRate}%
+                </span>
+              </div>
+              <div class="progress-bar">
+                <div class="progress-fill ${rateClass}" style="width: ${submissionRate}%;"></div>
+              </div>
+              <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">
+                ${submittedCount}/${totalRequired}名が提出済み
+              </div>
+            </div>
+          `;
+          
+          // 提出済み医師の表示
+          if (actualSubmitted.length > 0) {
+            statusHTML += `
+              <div style="margin-bottom: 0.75rem;">
+                <div style="display: flex; align-items: center; gap: 0.25rem; margin-bottom: 0.5rem;">
+                  <i class="fas fa-check-circle" style="color: var(--accent); font-size: 0.875rem;"></i>
+                  <span style="font-weight: 600; color: var(--accent);">提出済み（${actualSubmitted.length}名）</span>
+                </div>
+                <div style="padding-left: 1.25rem; color: var(--text-primary);">
+                  ${actualSubmitted.join('、')}
+                </div>
+              </div>
+            `;
+          }
+          
+          // 未提出医師の表示
+          if (notSubmittedDoctors.length > 0) {
+            statusHTML += `
+              <div style="margin-bottom: 0.75rem;">
+                <div style="display: flex; align-items: center; gap: 0.25rem; margin-bottom: 0.5rem;">
+                  <i class="fas fa-clock" style="color: var(--danger); font-size: 0.875rem;"></i>
+                  <span style="font-weight: 600; color: var(--danger);">未提出（${notSubmittedDoctors.length}名）</span>
+                </div>
+                <div style="padding-left: 1.25rem; color: var(--danger);">
+                  ${notSubmittedDoctors.join('、')}
+                </div>
+              </div>
+            `;
+          }
+          
+          // 提出義務対象外の医師の表示
+          if (exemptedSubmitted.length > 0) {
+            statusHTML += `
+              <div style="margin-bottom: 0.75rem;">
+                <div style="display: flex; align-items: center; gap: 0.25rem; margin-bottom: 0.5rem;">
+                  <i class="fas fa-star" style="color: var(--accent); font-size: 0.875rem;"></i>
+                  <span style="font-weight: 600; color: var(--accent);">提出義務対象外</span>
+                </div>
+                <div style="padding-left: 1.25rem; color: var(--accent); font-style: italic;">
+                  ${exemptedSubmitted.join('、')} （常時対応可能）
+                </div>
+              </div>
+            `;
+          }
+          
+          // サマリー情報
+          const completionEmoji = submissionRate >= 80 ? '🎉' : submissionRate >= 50 ? '👍' : '⚠️';
+          statusHTML += `
+            <div style="margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid #e2e8f0; text-align: center; font-size: 0.8rem; color: var(--text-muted);">
+              ${completionEmoji} 全体: ${submittedCount + exemptedSubmitted.length}/${totalRequired + exemptedSubmitted.length}名が対応可能
+            </div>
+          `;
+          
+          statusDiv.innerHTML = statusHTML;
+          
+          // 名前選択の下に挿入
+          const nameSelect = document.getElementById('name-select');
+          nameSelect.parentNode.appendChild(statusDiv);
+          
+          // アニメーション実行
+          setTimeout(() => {
+            statusDiv.style.opacity = '1';
+            statusDiv.style.transform = 'translateY(0)';
+          }, 100);
+        }
+
+        // 手動更新ボタンを追加（ローディング対応）
+        addRefreshButton() {
+          const nameSelectGroup = document.getElementById('name-select').parentNode;
+          
+          // 既存のボタンを削除
+          const existingButton = document.getElementById('refresh-submission-btn');
+          if (existingButton) {
+            existingButton.remove();
+          }
+          
+          const refreshButton = document.createElement('button');
+          refreshButton.id = 'refresh-submission-btn';
+          refreshButton.type = 'button';
+          refreshButton.className = 'refresh-submission-btn';
+          refreshButton.innerHTML = '<i class="fas fa-sync-alt"></i> 提出状況を更新';
+          
+          refreshButton.addEventListener('click', async () => {
+            const icon = refreshButton.querySelector('i');
+            const originalText = refreshButton.innerHTML;
+            
+            try {
+              refreshButton.disabled = true;
+              refreshButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 更新中...';
+              
+              await this.updateNameOptions();
+              
+              refreshButton.innerHTML = '<i class="fas fa-check"></i> 更新完了';
+              refreshButton.style.backgroundColor = '#f0fdf4';
+              refreshButton.style.borderColor = '#22c55e';
+              refreshButton.style.color = '#166534';
+              
+              setTimeout(() => {
+                refreshButton.innerHTML = originalText;
+                refreshButton.style.backgroundColor = '#f8fafc';
+                refreshButton.style.borderColor = 'var(--border)';
+                refreshButton.style.color = 'var(--text-secondary)';
+                refreshButton.disabled = false;
+              }, 2000);
+            } catch (error) {
+              refreshButton.innerHTML = '<i class="fas fa-exclamation-triangle"></i> エラー';
+              refreshButton.style.backgroundColor = '#fef2f2';
+              refreshButton.style.borderColor = '#ef4444';
+              refreshButton.style.color = '#dc2626';
+              
+              setTimeout(() => {
+                refreshButton.innerHTML = originalText;
+                refreshButton.style.backgroundColor = '#f8fafc';
+                refreshButton.style.borderColor = 'var(--border)';
+                refreshButton.style.color = 'var(--text-secondary)';
+                refreshButton.disabled = false;
+              }, 3000);
+            }
+          });
+          
+          nameSelectGroup.appendChild(refreshButton);
+        }
+
+        // リアルタイム更新を開始（初回ローディング付き）
+        startRealtimeUpdates() {
+          // 2分ごとに自動更新
+          this.pollInterval = setInterval(async () => {
+            if (!document.hidden) {
+              console.log('定期更新実行中...');
+              await this.updateNameOptions();
+            }
+          }, 2 * 60 * 1000); // 2分間隔
+          
+          console.log('リアルタイム更新を開始しました（2分間隔）');
+        }
+
+        // リアルタイム更新を停止
+        stopRealtimeUpdates() {
+          if (this.pollInterval) {
+            clearInterval(this.pollInterval);
+            this.pollInterval = null;
+            console.log('リアルタイム更新を停止しました');
+          }
+        }
+      }
+
+      // 提出状況トラッカーを初期化
+      const submissionTracker = new SubmissionTracker();
+      
+      // 手動更新ボタンを追加
+      submissionTracker.addRefreshButton();
+      
+      // ページ読み込み時に提出状況を確認（ローディング表示付き）
+      setTimeout(async () => {
+        await submissionTracker.updateNameOptions();
+      }, 2000); // 2秒後に実行（ページ読み込み完了を待つ）
+      
+      // リアルタイム更新を開始
+      submissionTracker.startRealtimeUpdates();
+      
+      // ページを離れる時にリアルタイム更新を停止
+      window.addEventListener('beforeunload', () => {
+        submissionTracker.stopRealtimeUpdates();
+      });
+
+      // -----------------------
+      // 名前と「その他」の処理
+      // -----------------------
+      const nameSelect = document.getElementById('name-select');
+      const otherNameInput = document.getElementById('other-name-input');
+      const nameError = document.getElementById('name-error');
+
+      nameSelect.addEventListener('change', function() {
+        if (this.value === 'その他') {
+          otherNameInput.style.display = 'block';
+        } else {
+          otherNameInput.style.display = 'none';
+        }
+      });
+
+      // -----------------------
+      // 日直・当直の必須処理
+      // -----------------------
+      const dutyTypeSelect = document.getElementById('duty-type');
+      const dutyTypeError = document.getElementById('duty-type-error');
+
+      // -----------------------
+      // カレンダー関連
+      // -----------------------
+      const monthTitles = document.querySelectorAll('.calendar-title');
+      const calendarGrids = document.querySelectorAll('.calendar-grid');
+
+      // 祝日リスト（例：軽微変更なし）
+      const holidays = [
+        "2025-01-01","2025-01-02","2025-01-03","2025-01-13","2025-02-11","2025-02-24",
+        "2025-03-20","2025-04-29","2025-05-03","2025-05-04","2025-05-05","2025-05-06",
+        "2025-07-21","2025-08-11","2025-09-15","2025-09-23","2025-10-13","2025-11-03",
+        "2025-11-23","2025-11-24"
+      ];
+
+      // 利用不可能日（日直のみ不可）
+      const specificUnavailableDates = [
+        "2025-07-05","2025-08-30","2025-09-06","2025-10-04","2025-11-29","2025-12-14"
+      ];
+
+      // 例：第1,3,5水曜が完全不可
+      const isUnavailableWednesday = (date) => {
+        if (date.getDay() !== 3) return false;
+        const firstDayOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);
+        const dayOfWeekOfFirstDay = firstDayOfMonth.getDay();
+        const firstWednesdayDate = 1 + (3 - dayOfWeekOfFirstDay + 7) % 7;
+        const weekNumber = Math.ceil((date.getDate() - firstWednesdayDate) / 7) + 1;
+        return (weekNumber === 1 || weekNumber === 3 || weekNumber === 5);
+      };
+
+      // ローカル時間を YYYY-MM-DD に変換
+      function formatDateForComparison(date) {
+        const yyyy = date.getFullYear();
+        const mm = String(date.getMonth() + 1).padStart(2, '0');
+        const dd = String(date.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+      }
+
+      function isHoliday(date) {
+        return holidays.includes(formatDateForComparison(date));
+      }
+
+      // 「全部不可」になる日かどうか
+      function isFullyUnavailableDate(date) {
+        return isUnavailableWednesday(date);
+      }
+
+      // 「日直のみ不可」にしたい日かどうか
+      function isDayShiftUnavailable(date) {
+        return specificUnavailableDates.includes(formatDateForComparison(date));
+      }
+
+      // デフォルトで2025年7月を表示
+      let currentMonth = new Date(2025, 6, 1);
+
+      function updateCalendar(month) {
+        monthTitles.forEach(title => {
+          title.textContent = `${month.getFullYear()}年 ${month.getMonth() + 1}月`;
+        });
+
+        calendarGrids.forEach(grid => {
+          const isPreferredCalendar = grid.closest('.calendar-wrapper').classList.contains('preferred');
+          grid.innerHTML = '';
+
+          // 曜日ヘッダー
+          const daysOfWeek = ['日','月','火','水','木','金','土'];
+          daysOfWeek.forEach((day, idx) => {
+            let className = 'day-header';
+            if (idx === 0) className += ' sunday';
+            if (idx === 6) className += ' saturday';
+            grid.innerHTML += `<div class="${className}">${day}</div>`;
+          });
+
+          const firstDay = new Date(month.getFullYear(), month.getMonth(), 1).getDay();
+          const daysInMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
+
+          // 空セル
+          for (let i = 0; i < firstDay; i++) {
+            grid.innerHTML += '<div class="calendar-cell empty-cell"></div>';
+          }
+
+          // 日付セル
+          for (let d = 1; d <= daysInMonth; d++) {
+            const dateObj = new Date(month.getFullYear(), month.getMonth(), d);
+            const dayOfWeek = dateObj.getDay();
+            const holidayFlag = isHoliday(dateObj);
+            const fullNG = isFullyUnavailableDate(dateObj);
+            const dayShiftNG = isDayShiftUnavailable(dateObj);
+
+            let cellClass = 'calendar-cell';
+            if (holidayFlag) cellClass += ' holiday';
+
+            // 週末 or 祝日 → 日直・当直の2ボタン
+            if (dayOfWeek === 0 || dayOfWeek === 6 || holidayFlag) {
+              cellClass += ' weekend-cell';
+
+              let dayBtnDisabled = '', nightBtnDisabled = '';
+              // 希望カレンダーで「完全不可」なら両方 disabled
+              if (isPreferredCalendar && fullNG) {
+                dayBtnDisabled = ' disabled';
+                nightBtnDisabled = ' disabled';
+              }
+              // 希望カレンダーで「日直のみ不可」なら日直のみ disabled
+              else if (isPreferredCalendar && dayShiftNG) {
+                dayBtnDisabled = ' disabled';
+              }
+
+              grid.innerHTML += `
+                <div class="${cellClass}">
+                  <button class="duty-btn${dayBtnDisabled}" data-date="${d}日">${d}日</button>
+                  <button class="duty-btn${nightBtnDisabled}" data-date="${d}当">${d}当</button>
+                </div>
+              `;
+            } else {
+              // 平日→1ボタン
+              let disabled = (isPreferredCalendar && fullNG) ? ' disabled' : '';
+              grid.innerHTML += `
+                <div class="${cellClass}">
+                  <button class="date-btn${disabled}" data-date="${d}">${d}</button>
+                </div>
+              `;
+            }
+          }
+
+          // ボタンのクリック挙動
+          grid.querySelectorAll('.date-btn:not(.disabled), .duty-btn:not(.disabled)').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+              e.preventDefault();
+              this.classList.toggle('selected');
+              if (!isPreferredCalendar) {
+                // 「希望しない日」なら .not-preferred も付与
+                this.classList.toggle('not-preferred');
+              <!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
@@ -364,15 +1047,46 @@
       cursor: not-allowed;
     }
 
-    /* 提出状況表示のスタイル */
+    /* 提出状況表示のスタイル（改良版） */
     .submission-status {
       margin-top: 1rem;
-      padding: 0.75rem 1rem;
+      padding: 1rem;
       background-color: #f0f9ff;
       border: 1px solid #0ea5e9;
-      border-radius: 0.5rem;
+      border-radius: var(--radius);
       font-size: 0.875rem;
       color: #0c4a6e;
+      line-height: 1.5;
+    }
+
+    /* 提出率バーのスタイル */
+    .progress-bar {
+      width: 100%;
+      height: 8px;
+      background-color: #e2e8f0;
+      border-radius: 4px;
+      overflow: hidden;
+      margin: 0.5rem 0;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent) 0%, #34d399 100%);
+      border-radius: 4px;
+      transition: width 0.8s ease;
+      position: relative;
+    }
+
+    .progress-fill.low {
+      background: linear-gradient(90deg, var(--danger) 0%, #f87171 100%);
+    }
+
+    .progress-fill.medium {
+      background: linear-gradient(90deg, var(--warning) 0%, #fbbf24 100%);
+    }
+
+    .progress-fill.high {
+      background: linear-gradient(90deg, var(--accent) 0%, #34d399 100%);
     }
 
     /* ローディング関連のスタイル */
@@ -669,7 +1383,7 @@
       })();
 
       // -----------------------
-      // 提出状況管理クラス（ローディングエフェクト付き）
+      // 提出状況管理クラス（提出率・未提出者表示付き）
       // -----------------------
       class SubmissionTracker {
         constructor() {
@@ -677,702 +1391,9 @@
           this.API_URL = 'https://script.google.com/macros/s/AKfycbyjoymzGDJGP_hlhFn4bI2Mp4mex_fbtJlGEtdWN3KvjIyN-qSTHaouaAFt5QeoJTA/exec';
           this.isLoading = false;
           this.pollInterval = null; // 定期更新用
+          
+          // 提出義務対象外の医師（吉玉・久次米先生）
+          this.EXEMPTED_DOCTORS = ['吉玉', '久次米'];
         }
 
-        // ローディング表示を開始
-        showLoading(message = '提出状況を読み込み中') {
-          const nameSelect = document.getElementById('name-select');
-          const nameSelectGroup = nameSelect.parentNode;
-          
-          // 既存のローディング表示を削除
-          const existingLoading = document.getElementById('loading-container');
-          if (existingLoading) {
-            existingLoading.remove();
-          }
-          
-          // 名前選択をローディング状態にする
-          nameSelect.classList.add('name-select-loading');
-          
-          // ローディングコンテナを作成
-          const loadingDiv = document.createElement('div');
-          loadingDiv.id = 'loading-container';
-          loadingDiv.className = 'loading-container show';
-          
-          // ランダムなローディングスタイルを選択
-          const loadingStyles = [
-            this.createSpinnerLoading(message),
-            this.createPulseLoading(message),
-            this.createSkeletonLoading(message)
-          ];
-          
-          const randomStyle = loadingStyles[Math.floor(Math.random() * loadingStyles.length)];
-          loadingDiv.innerHTML = randomStyle;
-          
-          nameSelectGroup.appendChild(loadingDiv);
-          
-          console.log('ローディング表示開始:', message);
-        }
-
-        // スピナー式ローディング
-        createSpinnerLoading(message) {
-          return `
-            <div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; color: var(--text-secondary);">
-              <div class="spinner"></div>
-              <span>${message}...</span>
-            </div>
-            <div style="margin-top: 0.5rem; font-size: 0.75rem; color: var(--text-muted);">
-              数秒お待ちください
-            </div>
-          `;
-        }
-
-        // パルス式ローディング
-        createPulseLoading(message) {
-          return `
-            <div style="color: var(--text-secondary); text-align: center;">
-              <div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin-bottom: 0.5rem;">
-                <i class="fas fa-database" style="color: var(--primary);"></i>
-                <span>${message}</span>
-                <div style="display: flex; gap: 2px;">
-                  <div class="pulse-dot"></div>
-                  <div class="pulse-dot"></div>
-                  <div class="pulse-dot"></div>
-                </div>
-              </div>
-              <div style="font-size: 0.75rem; color: var(--text-muted);">
-                スプレッドシートから最新情報を取得中
-              </div>
-            </div>
-          `;
-        }
-
-        // スケルトン式ローディング
-        createSkeletonLoading(message) {
-          return `
-            <div style="color: var(--text-secondary);">
-              <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem;">
-                <i class="fas fa-users" style="color: var(--primary);"></i>
-                <span>${message}...</span>
-              </div>
-              <div style="margin-bottom: 0.5rem;">
-                <div class="skeleton-item" style="width: 60%;"></div>
-                <div class="skeleton-item" style="width: 40%;"></div>
-                <div class="skeleton-item" style="width: 80%;"></div>
-              </div>
-              <div style="font-size: 0.75rem; color: var(--text-muted);">
-                まもなく完了します
-              </div>
-            </div>
-          `;
-        }
-
-        // ローディング表示を終了
-        hideLoading() {
-          const nameSelect = document.getElementById('name-select');
-          const loadingContainer = document.getElementById('loading-container');
-          
-          // 名前選択のローディング状態を解除
-          nameSelect.classList.remove('name-select-loading');
-          
-          // ローディングコンテナを削除（アニメーション付き）
-          if (loadingContainer) {
-            loadingContainer.style.opacity = '0';
-            loadingContainer.style.transform = 'translateY(-10px)';
-            loadingContainer.style.transition = 'all 0.3s ease';
-            
-            setTimeout(() => {
-              if (loadingContainer.parentNode) {
-                loadingContainer.remove();
-              }
-            }, 300);
-          }
-          
-          console.log('ローディング表示終了');
-        }
-
-        // 提出済み医師リストを取得（ローディング付き）
-        async getSubmittedDoctors() {
-          if (this.isLoading) return [];
-          
-          try {
-            this.isLoading = true;
-            console.log('提出状況を取得中...');
-            
-            const response = await fetch(`${this.API_URL}?action=getSubmitted&timestamp=${Date.now()}`);
-            
-            if (!response.ok) {
-              throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            
-            const data = await response.json();
-            console.log('提出状況データ:', data);
-            
-            return data.submitted || [];
-          } catch (error) {
-            console.error('提出状況取得エラー:', error);
-            return [];
-          } finally {
-            this.isLoading = false;
-          }
-        }
-
-        // 提出を記録（B列に追加）
-        async recordSubmission(doctorName) {
-          if (this.isLoading) return { success: false };
-          
-          try {
-            this.isLoading = true;
-            console.log('提出を記録中:', doctorName);
-            
-            const response = await fetch(this.API_URL, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                action: 'recordSubmission',
-                doctor: doctorName
-              })
-            });
-            
-            if (!response.ok) {
-              throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            
-            const result = await response.json();
-            console.log('提出記録結果:', result);
-            
-            return result;
-          } catch (error) {
-            console.error('提出記録エラー:', error);
-            return { success: false, error: error.toString() };
-          } finally {
-            this.isLoading = false;
-          }
-        }
-
-        // 名前選択肢をリアルタイム更新（ローディングエフェクト付き）
-        async updateNameOptions() {
-          try {
-            // ローディング表示開始
-            this.showLoading('提出状況を確認中');
-            
-            // 少し遅延を追加してローディング表示を見せる
-            await new Promise(resolve => setTimeout(resolve, 500));
-            
-            const submittedDoctors = await this.getSubmittedDoctors();
-            const nameSelect = document.getElementById('name-select');
-            
-            if (!nameSelect) return;
-            
-            // 全ての option 要素を更新
-            const options = nameSelect.querySelectorAll('option');
-            
-            options.forEach(option => {
-              if (option.value && option.value !== 'その他') {
-                const doctorName = option.value;
-                
-                // 既存の「（提出済み）」表示をリセット
-                let originalText = option.textContent;
-                if (originalText.includes('（提出済み）')) {
-                  originalText = originalText.replace('（提出済み）', '');
-                }
-                option.textContent = originalText;
-                option.style.color = '';
-                option.style.fontStyle = '';
-                
-                // 提出済みかチェック（呼び捨て名で照合）
-                if (submittedDoctors.includes(doctorName)) {
-                  // 提出済みの場合、「（提出済み）」を追加
-                  option.textContent = originalText.replace('先生', '先生（提出済み）');
-                  option.style.color = '#94a3b8'; // グレーアウト
-                  option.style.fontStyle = 'italic';
-                }
-              }
-            });
-            
-            // ローディング表示終了
-            this.hideLoading();
-            
-            // 少し遅延してから提出状況を表示
-            setTimeout(() => {
-              this.displaySubmissionStatus(submittedDoctors);
-            }, 200);
-            
-            console.log('提出済み医師リスト更新完了:', submittedDoctors);
-          } catch (error) {
-            console.error('名前選択肢更新エラー:', error);
-            this.hideLoading();
-            this.showErrorMessage('提出状況の読み込みに失敗しました');
-          }
-        }
-
-        // エラーメッセージ表示
-        showErrorMessage(message) {
-          const nameSelect = document.getElementById('name-select');
-          const nameSelectGroup = nameSelect.parentNode;
-          
-          const errorDiv = document.createElement('div');
-          errorDiv.className = 'loading-container show';
-          errorDiv.style.backgroundColor = '#fef2f2';
-          errorDiv.style.borderColor = '#ef4444';
-          errorDiv.style.color = '#dc2626';
-          
-          errorDiv.innerHTML = `
-            <div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
-              <i class="fas fa-exclamation-triangle"></i>
-              <span>${message}</span>
-            </div>
-            <div style="margin-top: 0.5rem; font-size: 0.75rem;">
-              手動更新ボタンをお試しください
-            </div>
-          `;
-          
-          nameSelectGroup.appendChild(errorDiv);
-          
-          // 3秒後に自動で削除
-          setTimeout(() => {
-            if (errorDiv.parentNode) {
-              errorDiv.remove();
-            }
-          }, 3000);
-        }
-
-        // 提出状況を画面に表示（改良版）
-        displaySubmissionStatus(submittedDoctors) {
-          // 既存の状況表示を削除
-          const existingStatus = document.getElementById('submission-status');
-          if (existingStatus) {
-            existingStatus.remove();
-          }
-          
-          if (submittedDoctors.length > 0) {
-            const statusDiv = document.createElement('div');
-            statusDiv.id = 'submission-status';
-            statusDiv.className = 'submission-status';
-            
-            // アニメーション付きで表示
-            statusDiv.style.opacity = '0';
-            statusDiv.style.transform = 'translateY(10px)';
-            statusDiv.style.transition = 'all 0.4s ease';
-            
-            statusDiv.innerHTML = `
-              <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
-                <i class="fas fa-check-circle" style="color: var(--accent);"></i>
-                <strong>提出状況</strong>
-                <span style="margin-left: auto; font-size: 0.75rem;">${new Date().toLocaleTimeString()}</span>
-              </div>
-              <div style="display: flex; align-items: center; gap: 0.25rem;">
-                <span>提出済み（${submittedDoctors.length}名）:</span>
-                <span style="font-weight: 500;">${submittedDoctors.join('、')}</span>
-              </div>
-            `;
-            
-            // 名前選択の下に挿入
-            const nameSelect = document.getElementById('name-select');
-            nameSelect.parentNode.appendChild(statusDiv);
-            
-            // アニメーション実行
-            setTimeout(() => {
-              statusDiv.style.opacity = '1';
-              statusDiv.style.transform = 'translateY(0)';
-            }, 100);
-          }
-        }
-
-        // 手動更新ボタンを追加（ローディング対応）
-        addRefreshButton() {
-          const nameSelectGroup = document.getElementById('name-select').parentNode;
-          
-          // 既存のボタンを削除
-          const existingButton = document.getElementById('refresh-submission-btn');
-          if (existingButton) {
-            existingButton.remove();
-          }
-          
-          const refreshButton = document.createElement('button');
-          refreshButton.id = 'refresh-submission-btn';
-          refreshButton.type = 'button';
-          refreshButton.className = 'refresh-submission-btn';
-          refreshButton.innerHTML = '<i class="fas fa-sync-alt"></i> 提出状況を更新';
-          
-          refreshButton.addEventListener('click', async () => {
-            const icon = refreshButton.querySelector('i');
-            const originalText = refreshButton.innerHTML;
-            
-            try {
-              refreshButton.disabled = true;
-              refreshButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 更新中...';
-              
-              await this.updateNameOptions();
-              
-              refreshButton.innerHTML = '<i class="fas fa-check"></i> 更新完了';
-              refreshButton.style.backgroundColor = '#f0fdf4';
-              refreshButton.style.borderColor = '#22c55e';
-              refreshButton.style.color = '#166534';
-              
-              setTimeout(() => {
-                refreshButton.innerHTML = originalText;
-                refreshButton.style.backgroundColor = '#f8fafc';
-                refreshButton.style.borderColor = 'var(--border)';
-                refreshButton.style.color = 'var(--text-secondary)';
-                refreshButton.disabled = false;
-              }, 2000);
-            } catch (error) {
-              refreshButton.innerHTML = '<i class="fas fa-exclamation-triangle"></i> エラー';
-              refreshButton.style.backgroundColor = '#fef2f2';
-              refreshButton.style.borderColor = '#ef4444';
-              refreshButton.style.color = '#dc2626';
-              
-              setTimeout(() => {
-                refreshButton.innerHTML = originalText;
-                refreshButton.style.backgroundColor = '#f8fafc';
-                refreshButton.style.borderColor = 'var(--border)';
-                refreshButton.style.color = 'var(--text-secondary)';
-                refreshButton.disabled = false;
-              }, 3000);
-            }
-          });
-          
-          nameSelectGroup.appendChild(refreshButton);
-        }
-
-        // リアルタイム更新を開始（初回ローディング付き）
-        startRealtimeUpdates() {
-          // 2分ごとに自動更新
-          this.pollInterval = setInterval(async () => {
-            if (!document.hidden) {
-              console.log('定期更新実行中...');
-              await this.updateNameOptions();
-            }
-          }, 2 * 60 * 1000); // 2分間隔
-          
-          console.log('リアルタイム更新を開始しました（2分間隔）');
-        }
-
-        // リアルタイム更新を停止
-        stopRealtimeUpdates() {
-          if (this.pollInterval) {
-            clearInterval(this.pollInterval);
-            this.pollInterval = null;
-            console.log('リアルタイム更新を停止しました');
-          }
-        }
-      }
-
-      // 提出状況トラッカーを初期化
-      const submissionTracker = new SubmissionTracker();
-      
-      // 手動更新ボタンを追加
-      submissionTracker.addRefreshButton();
-      
-      // ページ読み込み時に提出状況を確認（ローディング表示付き）
-      setTimeout(async () => {
-        await submissionTracker.updateNameOptions();
-      }, 2000); // 2秒後に実行（ページ読み込み完了を待つ）
-      
-      // リアルタイム更新を開始
-      submissionTracker.startRealtimeUpdates();
-      
-      // ページを離れる時にリアルタイム更新を停止
-      window.addEventListener('beforeunload', () => {
-        submissionTracker.stopRealtimeUpdates();
-      });
-
-      // -----------------------
-      // 名前と「その他」の処理
-      // -----------------------
-      const nameSelect = document.getElementById('name-select');
-      const otherNameInput = document.getElementById('other-name-input');
-      const nameError = document.getElementById('name-error');
-
-      nameSelect.addEventListener('change', function() {
-        if (this.value === 'その他') {
-          otherNameInput.style.display = 'block';
-        } else {
-          otherNameInput.style.display = 'none';
-        }
-      });
-
-      // -----------------------
-      // 日直・当直の必須処理
-      // -----------------------
-      const dutyTypeSelect = document.getElementById('duty-type');
-      const dutyTypeError = document.getElementById('duty-type-error');
-
-      // -----------------------
-      // カレンダー関連
-      // -----------------------
-      const monthTitles = document.querySelectorAll('.calendar-title');
-      const calendarGrids = document.querySelectorAll('.calendar-grid');
-
-      // 祝日リスト（例：軽微変更なし）
-      const holidays = [
-        "2025-01-01","2025-01-02","2025-01-03","2025-01-13","2025-02-11","2025-02-24",
-        "2025-03-20","2025-04-29","2025-05-03","2025-05-04","2025-05-05","2025-05-06",
-        "2025-07-21","2025-08-11","2025-09-15","2025-09-23","2025-10-13","2025-11-03",
-        "2025-11-23","2025-11-24"
-      ];
-
-      // 利用不可能日（日直のみ不可）
-      const specificUnavailableDates = [
-        "2025-07-05","2025-08-30","2025-09-06","2025-10-04","2025-11-29","2025-12-14"
-      ];
-
-      // 例：第1,3,5水曜が完全不可
-      const isUnavailableWednesday = (date) => {
-        if (date.getDay() !== 3) return false;
-        const firstDayOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);
-        const dayOfWeekOfFirstDay = firstDayOfMonth.getDay();
-        const firstWednesdayDate = 1 + (3 - dayOfWeekOfFirstDay + 7) % 7;
-        const weekNumber = Math.ceil((date.getDate() - firstWednesdayDate) / 7) + 1;
-        return (weekNumber === 1 || weekNumber === 3 || weekNumber === 5);
-      };
-
-      // ローカル時間を YYYY-MM-DD に変換
-      function formatDateForComparison(date) {
-        const yyyy = date.getFullYear();
-        const mm = String(date.getMonth() + 1).padStart(2, '0');
-        const dd = String(date.getDate()).padStart(2, '0');
-        return `${yyyy}-${mm}-${dd}`;
-      }
-
-      function isHoliday(date) {
-        return holidays.includes(formatDateForComparison(date));
-      }
-
-      // 「全部不可」になる日かどうか
-      function isFullyUnavailableDate(date) {
-        return isUnavailableWednesday(date);
-      }
-
-      // 「日直のみ不可」にしたい日かどうか
-      function isDayShiftUnavailable(date) {
-        return specificUnavailableDates.includes(formatDateForComparison(date));
-      }
-
-      // デフォルトで2025年7月を表示
-      let currentMonth = new Date(2025, 6, 1);
-
-      function updateCalendar(month) {
-        monthTitles.forEach(title => {
-          title.textContent = `${month.getFullYear()}年 ${month.getMonth() + 1}月`;
-        });
-
-        calendarGrids.forEach(grid => {
-          const isPreferredCalendar = grid.closest('.calendar-wrapper').classList.contains('preferred');
-          grid.innerHTML = '';
-
-          // 曜日ヘッダー
-          const daysOfWeek = ['日','月','火','水','木','金','土'];
-          daysOfWeek.forEach((day, idx) => {
-            let className = 'day-header';
-            if (idx === 0) className += ' sunday';
-            if (idx === 6) className += ' saturday';
-            grid.innerHTML += `<div class="${className}">${day}</div>`;
-          });
-
-          const firstDay = new Date(month.getFullYear(), month.getMonth(), 1).getDay();
-          const daysInMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
-
-          // 空セル
-          for (let i = 0; i < firstDay; i++) {
-            grid.innerHTML += '<div class="calendar-cell empty-cell"></div>';
-          }
-
-          // 日付セル
-          for (let d = 1; d <= daysInMonth; d++) {
-            const dateObj = new Date(month.getFullYear(), month.getMonth(), d);
-            const dayOfWeek = dateObj.getDay();
-            const holidayFlag = isHoliday(dateObj);
-            const fullNG = isFullyUnavailableDate(dateObj);
-            const dayShiftNG = isDayShiftUnavailable(dateObj);
-
-            let cellClass = 'calendar-cell';
-            if (holidayFlag) cellClass += ' holiday';
-
-            // 週末 or 祝日 → 日直・当直の2ボタン
-            if (dayOfWeek === 0 || dayOfWeek === 6 || holidayFlag) {
-              cellClass += ' weekend-cell';
-
-              let dayBtnDisabled = '', nightBtnDisabled = '';
-              // 希望カレンダーで「完全不可」なら両方 disabled
-              if (isPreferredCalendar && fullNG) {
-                dayBtnDisabled = ' disabled';
-                nightBtnDisabled = ' disabled';
-              }
-              // 希望カレンダーで「日直のみ不可」なら日直のみ disabled
-              else if (isPreferredCalendar && dayShiftNG) {
-                dayBtnDisabled = ' disabled';
-              }
-
-              grid.innerHTML += `
-                <div class="${cellClass}">
-                  <button class="duty-btn${dayBtnDisabled}" data-date="${d}日">${d}日</button>
-                  <button class="duty-btn${nightBtnDisabled}" data-date="${d}当">${d}当</button>
-                </div>
-              `;
-            } else {
-              // 平日→1ボタン
-              let disabled = (isPreferredCalendar && fullNG) ? ' disabled' : '';
-              grid.innerHTML += `
-                <div class="${cellClass}">
-                  <button class="date-btn${disabled}" data-date="${d}">${d}</button>
-                </div>
-              `;
-            }
-          }
-
-          // ボタンのクリック挙動
-          grid.querySelectorAll('.date-btn:not(.disabled), .duty-btn:not(.disabled)').forEach(btn => {
-            btn.addEventListener('click', function(e) {
-              e.preventDefault();
-              this.classList.toggle('selected');
-              if (!isPreferredCalendar) {
-                // 「希望しない日」なら .not-preferred も付与
-                this.classList.toggle('not-preferred');
-              }
-              // タップアニメ
-              this.style.transform = 'scale(0.95)';
-              setTimeout(() => {
-                this.style.transform = '';
-              }, 100);
-            });
-          });
-        });
-      }
-
-      updateCalendar(currentMonth);
-
-      // 前月・次月へ
-      document.querySelectorAll('.prev-month').forEach(btn => {
-        btn.addEventListener('click', () => {
-          currentMonth.setMonth(currentMonth.getMonth() - 1);
-          updateCalendar(currentMonth);
-        });
-      });
-      document.querySelectorAll('.next-month').forEach(btn => {
-        btn.addEventListener('click', () => {
-          currentMonth.setMonth(currentMonth.getMonth() + 1);
-          updateCalendar(currentMonth);
-        });
-      });
-
-      // -----------------------
-      // 送信ボタン関連（ローディング対応版）
-      // -----------------------
-      const submitBtn = document.getElementById('submit-btn');
-      const successMessage = document.getElementById('success-message');
-      const planeIcon = submitBtn.querySelector('.plane-icon');
-
-      submitBtn.addEventListener('click', async function(e) {
-        e.preventDefault();
-
-        // 1) 名前チェック
-        let name = nameSelect.value;
-        if (name === 'その他') {
-          name = otherNameInput.value.trim();
-        }
-        if (!name) {
-          nameError.style.display = 'block';
-          return;
-        } else {
-          nameError.style.display = 'none';
-        }
-
-        // 2) 日直・当直チェック
-        let dutyType = dutyTypeSelect.value;
-        if (!dutyType) {
-          dutyTypeError.style.display = 'block';
-          dutyTypeSelect.focus();
-          return;
-        } else {
-          dutyTypeError.style.display = 'none';
-        }
-
-        // カレンダー選択結果
-        const comment = document.getElementById('comment-input').value.trim();
-        const preferredDates = Array.from(document.querySelectorAll('.preferred .selected'))
-                                    .map(el => el.getAttribute('data-date'));
-        const notPreferredDates = Array.from(document.querySelectorAll('.not-preferred .selected'))
-                                       .map(el => el.getAttribute('data-date'));
-        const email = document.getElementById('email-input').value.trim();
-
-        // 紙飛行機アイコンを飛ばす
-        planeIcon.classList.add('flying');
-
-        // 飛行アニメーション完了後に送信処理
-        planeIcon.addEventListener('animationend', handleSubmission, { once: true });
-
-        async function handleSubmission() {
-          // ボタンを無効化 & スピナー表示
-          submitBtn.disabled = true;
-          submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 送信中...';
-
-          try {
-            // EmailJS送信
-            const response = await emailjs.send("service_v7cenku", "template_rm69kao", {
-              name,
-              comment,
-              duty_type: dutyType,
-              preferred_dates: preferredDates.join(', '),
-              not_preferred_dates: notPreferredDates.join(', '),
-              email
-            });
-
-            // 送信成功時の処理
-            console.log('EmailJS送信成功:', response);
-            
-            // スプレッドシートのB列に提出者を記録
-            try {
-              await submissionTracker.recordSubmission(name);
-              console.log('スプレッドシート記録完了:', name);
-              
-              // 即座に提出状況を更新（ローディング付き）
-              setTimeout(async () => {
-                await submissionTracker.updateNameOptions();
-              }, 1000);
-            } catch (recordError) {
-              console.warn('スプレッドシート記録エラー（メール送信は成功）:', recordError);
-            }
-
-            // 成功表示
-            submitBtn.style.display = 'none';
-            successMessage.classList.add('show');
-            
-            setTimeout(() => {
-              alert(
-                `送信が完了しました。\n\n` +
-                `回答者：${name}\n` +
-                `希望(日)：${preferredDates.join(', ')}\n` +
-                `希望しない日：${notPreferredDates.join(', ')}\n` +
-                `日直／当直：${dutyType}`
-              );
-              
-              // 初期状態に戻す
-              setTimeout(() => {
-                planeIcon.classList.remove('flying');
-                submitBtn.style.display = 'flex';
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = '<i class="fas fa-paper-plane plane-icon"></i> 送信する';
-                successMessage.classList.remove('show');
-              }, 2000);
-            }, 500);
-
-          } catch (error) {
-            // エラー時
-            console.error('EmailJS送信エラー:', error);
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> エラー';
-            alert('送信に失敗しました。もう一度お試しください。');
-            setTimeout(() => {
-              planeIcon.classList.remove('flying');
-              submitBtn.innerHTML = '<i class="fas fa-paper-plane plane-icon"></i> 送信する';
-            }, 3000);
-          }
-        }
-      });
-    });
-  </script>
-</body>
-</html>
+        // HTMLの選択肢から全医
