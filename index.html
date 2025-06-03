@@ -375,6 +375,103 @@
       color: #0c4a6e;
     }
 
+    /* ローディング関連のスタイル */
+    .loading-container {
+      margin-top: 1rem;
+      padding: 1rem;
+      background-color: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      text-align: center;
+      display: none;
+    }
+
+    .loading-container.show {
+      display: block;
+    }
+
+    /* スピナーアニメーション */
+    .spinner {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 2px solid #e2e8f0;
+      border-top: 2px solid var(--primary);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-right: 0.5rem;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    /* パルスアニメーション */
+    .pulse-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: var(--primary);
+      margin: 0 2px;
+      animation: pulse 1.4s ease-in-out infinite both;
+    }
+
+    .pulse-dot:nth-child(1) { animation-delay: -0.32s; }
+    .pulse-dot:nth-child(2) { animation-delay: -0.16s; }
+
+    @keyframes pulse {
+      0%, 80%, 100% {
+        transform: scale(0.8);
+        opacity: 0.5;
+      }
+      40% {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+
+    /* スケルトンローディング */
+    .skeleton-item {
+      height: 20px;
+      background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+      background-size: 200% 100%;
+      animation: loading 1.5s infinite;
+      border-radius: 4px;
+      margin-bottom: 8px;
+    }
+
+    @keyframes loading {
+      0% {
+        background-position: 200% 0;
+      }
+      100% {
+        background-position: -200% 0;
+      }
+    }
+
+    /* ローディング状態での名前選択肢の見た目 */
+    .name-select-loading {
+      position: relative;
+      opacity: 0.6;
+      pointer-events: none;
+    }
+
+    .name-select-loading::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(255, 255, 255, 0.8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: var(--radius);
+    }
+
     .footer {
       text-align: center; padding: 2rem 1rem;
       color: var(--text-secondary); font-size: 0.875rem;
@@ -423,7 +520,7 @@
       <div class="section">
         <div class="section-header">
           <div class="section-number">1</div>
-          <div class="section-title">お名前（提出状況は5分ほどラグあり）</div>
+          <div class="section-title">お名前</div>
         </div>
         <div class="form-group">
           <select id="name-select">
@@ -572,7 +669,7 @@
       })();
 
       // -----------------------
-      // 提出状況管理クラス（既存スプレッドシート対応版）
+      // 提出状況管理クラス（ローディングエフェクト付き）
       // -----------------------
       class SubmissionTracker {
         constructor() {
@@ -582,7 +679,118 @@
           this.pollInterval = null; // 定期更新用
         }
 
-        // 提出済み医師リストを取得
+        // ローディング表示を開始
+        showLoading(message = '提出状況を読み込み中') {
+          const nameSelect = document.getElementById('name-select');
+          const nameSelectGroup = nameSelect.parentNode;
+          
+          // 既存のローディング表示を削除
+          const existingLoading = document.getElementById('loading-container');
+          if (existingLoading) {
+            existingLoading.remove();
+          }
+          
+          // 名前選択をローディング状態にする
+          nameSelect.classList.add('name-select-loading');
+          
+          // ローディングコンテナを作成
+          const loadingDiv = document.createElement('div');
+          loadingDiv.id = 'loading-container';
+          loadingDiv.className = 'loading-container show';
+          
+          // ランダムなローディングスタイルを選択
+          const loadingStyles = [
+            this.createSpinnerLoading(message),
+            this.createPulseLoading(message),
+            this.createSkeletonLoading(message)
+          ];
+          
+          const randomStyle = loadingStyles[Math.floor(Math.random() * loadingStyles.length)];
+          loadingDiv.innerHTML = randomStyle;
+          
+          nameSelectGroup.appendChild(loadingDiv);
+          
+          console.log('ローディング表示開始:', message);
+        }
+
+        // スピナー式ローディング
+        createSpinnerLoading(message) {
+          return `
+            <div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; color: var(--text-secondary);">
+              <div class="spinner"></div>
+              <span>${message}...</span>
+            </div>
+            <div style="margin-top: 0.5rem; font-size: 0.75rem; color: var(--text-muted);">
+              数秒お待ちください
+            </div>
+          `;
+        }
+
+        // パルス式ローディング
+        createPulseLoading(message) {
+          return `
+            <div style="color: var(--text-secondary); text-align: center;">
+              <div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                <i class="fas fa-database" style="color: var(--primary);"></i>
+                <span>${message}</span>
+                <div style="display: flex; gap: 2px;">
+                  <div class="pulse-dot"></div>
+                  <div class="pulse-dot"></div>
+                  <div class="pulse-dot"></div>
+                </div>
+              </div>
+              <div style="font-size: 0.75rem; color: var(--text-muted);">
+                スプレッドシートから最新情報を取得中
+              </div>
+            </div>
+          `;
+        }
+
+        // スケルトン式ローディング
+        createSkeletonLoading(message) {
+          return `
+            <div style="color: var(--text-secondary);">
+              <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem;">
+                <i class="fas fa-users" style="color: var(--primary);"></i>
+                <span>${message}...</span>
+              </div>
+              <div style="margin-bottom: 0.5rem;">
+                <div class="skeleton-item" style="width: 60%;"></div>
+                <div class="skeleton-item" style="width: 40%;"></div>
+                <div class="skeleton-item" style="width: 80%;"></div>
+              </div>
+              <div style="font-size: 0.75rem; color: var(--text-muted);">
+                まもなく完了します
+              </div>
+            </div>
+          `;
+        }
+
+        // ローディング表示を終了
+        hideLoading() {
+          const nameSelect = document.getElementById('name-select');
+          const loadingContainer = document.getElementById('loading-container');
+          
+          // 名前選択のローディング状態を解除
+          nameSelect.classList.remove('name-select-loading');
+          
+          // ローディングコンテナを削除（アニメーション付き）
+          if (loadingContainer) {
+            loadingContainer.style.opacity = '0';
+            loadingContainer.style.transform = 'translateY(-10px)';
+            loadingContainer.style.transition = 'all 0.3s ease';
+            
+            setTimeout(() => {
+              if (loadingContainer.parentNode) {
+                loadingContainer.remove();
+              }
+            }, 300);
+          }
+          
+          console.log('ローディング表示終了');
+        }
+
+        // 提出済み医師リストを取得（ローディング付き）
         async getSubmittedDoctors() {
           if (this.isLoading) return [];
           
@@ -643,9 +851,15 @@
           }
         }
 
-        // 名前選択肢をリアルタイム更新
+        // 名前選択肢をリアルタイム更新（ローディングエフェクト付き）
         async updateNameOptions() {
           try {
+            // ローディング表示開始
+            this.showLoading('提出状況を確認中');
+            
+            // 少し遅延を追加してローディング表示を見せる
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
             const submittedDoctors = await this.getSubmittedDoctors();
             const nameSelect = document.getElementById('name-select');
             
@@ -677,16 +891,54 @@
               }
             });
             
-            // 提出済み状況をページに表示
-            this.displaySubmissionStatus(submittedDoctors);
+            // ローディング表示終了
+            this.hideLoading();
+            
+            // 少し遅延してから提出状況を表示
+            setTimeout(() => {
+              this.displaySubmissionStatus(submittedDoctors);
+            }, 200);
             
             console.log('提出済み医師リスト更新完了:', submittedDoctors);
           } catch (error) {
             console.error('名前選択肢更新エラー:', error);
+            this.hideLoading();
+            this.showErrorMessage('提出状況の読み込みに失敗しました');
           }
         }
 
-        // 提出状況を画面に表示
+        // エラーメッセージ表示
+        showErrorMessage(message) {
+          const nameSelect = document.getElementById('name-select');
+          const nameSelectGroup = nameSelect.parentNode;
+          
+          const errorDiv = document.createElement('div');
+          errorDiv.className = 'loading-container show';
+          errorDiv.style.backgroundColor = '#fef2f2';
+          errorDiv.style.borderColor = '#ef4444';
+          errorDiv.style.color = '#dc2626';
+          
+          errorDiv.innerHTML = `
+            <div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+              <i class="fas fa-exclamation-triangle"></i>
+              <span>${message}</span>
+            </div>
+            <div style="margin-top: 0.5rem; font-size: 0.75rem;">
+              手動更新ボタンをお試しください
+            </div>
+          `;
+          
+          nameSelectGroup.appendChild(errorDiv);
+          
+          // 3秒後に自動で削除
+          setTimeout(() => {
+            if (errorDiv.parentNode) {
+              errorDiv.remove();
+            }
+          }, 3000);
+        }
+
+        // 提出状況を画面に表示（改良版）
         displaySubmissionStatus(submittedDoctors) {
           // 既存の状況表示を削除
           const existingStatus = document.getElementById('submission-status');
@@ -699,22 +951,36 @@
             statusDiv.id = 'submission-status';
             statusDiv.className = 'submission-status';
             
+            // アニメーション付きで表示
+            statusDiv.style.opacity = '0';
+            statusDiv.style.transform = 'translateY(10px)';
+            statusDiv.style.transition = 'all 0.4s ease';
+            
             statusDiv.innerHTML = `
               <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
-                <i class="fas fa-info-circle"></i>
+                <i class="fas fa-check-circle" style="color: var(--accent);"></i>
                 <strong>提出状況</strong>
                 <span style="margin-left: auto; font-size: 0.75rem;">${new Date().toLocaleTimeString()}</span>
               </div>
-              <div>提出済み（${submittedDoctors.length}名）: ${submittedDoctors.join('、')}</div>
+              <div style="display: flex; align-items: center; gap: 0.25rem;">
+                <span>提出済み（${submittedDoctors.length}名）:</span>
+                <span style="font-weight: 500;">${submittedDoctors.join('、')}</span>
+              </div>
             `;
             
             // 名前選択の下に挿入
             const nameSelect = document.getElementById('name-select');
             nameSelect.parentNode.appendChild(statusDiv);
+            
+            // アニメーション実行
+            setTimeout(() => {
+              statusDiv.style.opacity = '1';
+              statusDiv.style.transform = 'translateY(0)';
+            }, 100);
           }
         }
 
-        // 手動更新ボタンを追加
+        // 手動更新ボタンを追加（ローディング対応）
         addRefreshButton() {
           const nameSelectGroup = document.getElementById('name-select').parentNode;
           
@@ -771,12 +1037,14 @@
           nameSelectGroup.appendChild(refreshButton);
         }
 
-        // リアルタイム更新を開始
+        // リアルタイム更新を開始（初回ローディング付き）
         startRealtimeUpdates() {
           // 2分ごとに自動更新
           this.pollInterval = setInterval(async () => {
-            console.log('定期更新実行中...');
-            await this.updateNameOptions();
+            if (!document.hidden) {
+              console.log('定期更新実行中...');
+              await this.updateNameOptions();
+            }
           }, 2 * 60 * 1000); // 2分間隔
           
           console.log('リアルタイム更新を開始しました（2分間隔）');
@@ -798,10 +1066,10 @@
       // 手動更新ボタンを追加
       submissionTracker.addRefreshButton();
       
-      // ページ読み込み時に提出状況を確認（3秒後に実行）
+      // ページ読み込み時に提出状況を確認（ローディング表示付き）
       setTimeout(async () => {
         await submissionTracker.updateNameOptions();
-      }, 3000);
+      }, 2000); // 2秒後に実行（ページ読み込み完了を待つ）
       
       // リアルタイム更新を開始
       submissionTracker.startRealtimeUpdates();
@@ -991,7 +1259,7 @@
       });
 
       // -----------------------
-      // 送信ボタン関連（修正版）
+      // 送信ボタン関連（ローディング対応版）
       // -----------------------
       const submitBtn = document.getElementById('submit-btn');
       const successMessage = document.getElementById('success-message');
@@ -1060,7 +1328,7 @@
               await submissionTracker.recordSubmission(name);
               console.log('スプレッドシート記録完了:', name);
               
-              // 即座に提出状況を更新
+              // 即座に提出状況を更新（ローディング付き）
               setTimeout(async () => {
                 await submissionTracker.updateNameOptions();
               }, 1000);
