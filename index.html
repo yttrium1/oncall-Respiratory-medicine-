@@ -574,223 +574,303 @@
       // -----------------------
       // 提出状況管理クラス（既存スプレッドシート対応版）
       // -----------------------
-      class SubmissionTracker {
-        constructor() {
-          // Google Apps Script のWebアプリURL（デプロイ後に取得したURLに変更）
-          this.API_URL = 'https://script.google.com/macros/s/AKfycbyjoymzGDJGP_hlhFn4bI2Mp4mex_fbtJlGEtdWN3KvjIyN-qSTHaouaAFt5QeoJTA/exec';
-          this.isLoading = false;
-          this.pollInterval = null; // 定期更新用
-        }
+      // HTMLファイル内の SubmissionTracker クラスを以下に置き換え
 
-        // 提出済み医師リストを取得
-        async getSubmittedDoctors() {
-          if (this.isLoading) return [];
-          
-          try {
-            this.isLoading = true;
-            console.log('提出状況を取得中...');
-            
-            const response = await fetch(`${this.API_URL}?action=getSubmitted&timestamp=${Date.now()}`);
-            
-            if (!response.ok) {
-              throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            
-            const data = await response.json();
-            console.log('提出状況データ:', data);
-            
-            return data.submitted || [];
-          } catch (error) {
-            console.error('提出状況取得エラー:', error);
-            return [];
-          } finally {
-            this.isLoading = false;
-          }
-        }
+// 提出状況管理クラス（フィルタリング対応版）
+class SubmissionTracker {
+  constructor() {
+    // Google Apps Script のWebアプリURL（デプロイ後に取得したURLに変更）
+    this.API_URL = 'YOUR_GAS_WEB_APP_URL_HERE';
+    this.isLoading = false;
+    this.pollInterval = null; // 定期更新用
+    
+    // フィルタリング設定（GAS側と同期）
+    this.IGNORED_DOCTORS = ['不明', '未定', 'テスト', ''];
+    this.DEFAULT_SUBMITTED_DOCTORS = ['吉玉', '久次米'];
+  }
 
-        // 提出を記録（B列に追加）
-        async recordSubmission(doctorName) {
-          if (this.isLoading) return { success: false };
-          
-          try {
-            this.isLoading = true;
-            console.log('提出を記録中:', doctorName);
-            
-            const response = await fetch(this.API_URL, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                action: 'recordSubmission',
-                doctor: doctorName
-              })
-            });
-            
-            if (!response.ok) {
-              throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            
-            const result = await response.json();
-            console.log('提出記録結果:', result);
-            
-            return result;
-          } catch (error) {
-            console.error('提出記録エラー:', error);
-            return { success: false, error: error.toString() };
-          } finally {
-            this.isLoading = false;
-          }
-        }
-
-        // 名前選択肢をリアルタイム更新
-        async updateNameOptions() {
-          try {
-            const submittedDoctors = await this.getSubmittedDoctors();
-            const nameSelect = document.getElementById('name-select');
-            
-            if (!nameSelect) return;
-            
-            // 全ての option 要素を更新
-            const options = nameSelect.querySelectorAll('option');
-            
-            options.forEach(option => {
-              if (option.value && option.value !== 'その他') {
-                const doctorName = option.value;
-                
-                // 既存の「（提出済み）」表示をリセット
-                let originalText = option.textContent;
-                if (originalText.includes('（提出済み）')) {
-                  originalText = originalText.replace('（提出済み）', '');
-                }
-                option.textContent = originalText;
-                option.style.color = '';
-                option.style.fontStyle = '';
-                
-                // 提出済みかチェック（呼び捨て名で照合）
-                if (submittedDoctors.includes(doctorName)) {
-                  // 提出済みの場合、「（提出済み）」を追加
-                  option.textContent = originalText.replace('先生', '先生（提出済み）');
-                  option.style.color = '#94a3b8'; // グレーアウト
-                  option.style.fontStyle = 'italic';
-                }
-              }
-            });
-            
-            // 提出済み状況をページに表示
-            this.displaySubmissionStatus(submittedDoctors);
-            
-            console.log('提出済み医師リスト更新完了:', submittedDoctors);
-          } catch (error) {
-            console.error('名前選択肢更新エラー:', error);
-          }
-        }
-
-        // 提出状況を画面に表示
-        displaySubmissionStatus(submittedDoctors) {
-          // 既存の状況表示を削除
-          const existingStatus = document.getElementById('submission-status');
-          if (existingStatus) {
-            existingStatus.remove();
-          }
-          
-          if (submittedDoctors.length > 0) {
-            const statusDiv = document.createElement('div');
-            statusDiv.id = 'submission-status';
-            statusDiv.className = 'submission-status';
-            
-            statusDiv.innerHTML = `
-              <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
-                <i class="fas fa-info-circle"></i>
-                <strong>提出状況</strong>
-                <span style="margin-left: auto; font-size: 0.75rem;">${new Date().toLocaleTimeString()}</span>
-              </div>
-              <div>提出済み（${submittedDoctors.length}名）: ${submittedDoctors.join('、')}</div>
-            `;
-            
-            // 名前選択の下に挿入
-            const nameSelect = document.getElementById('name-select');
-            nameSelect.parentNode.appendChild(statusDiv);
-          }
-        }
-
-        // 手動更新ボタンを追加
-        addRefreshButton() {
-          const nameSelectGroup = document.getElementById('name-select').parentNode;
-          
-          // 既存のボタンを削除
-          const existingButton = document.getElementById('refresh-submission-btn');
-          if (existingButton) {
-            existingButton.remove();
-          }
-          
-          const refreshButton = document.createElement('button');
-          refreshButton.id = 'refresh-submission-btn';
-          refreshButton.type = 'button';
-          refreshButton.className = 'refresh-submission-btn';
-          refreshButton.innerHTML = '<i class="fas fa-sync-alt"></i> 提出状況を更新';
-          
-          refreshButton.addEventListener('click', async () => {
-            const icon = refreshButton.querySelector('i');
-            const originalText = refreshButton.innerHTML;
-            
-            try {
-              refreshButton.disabled = true;
-              refreshButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 更新中...';
-              
-              await this.updateNameOptions();
-              
-              refreshButton.innerHTML = '<i class="fas fa-check"></i> 更新完了';
-              refreshButton.style.backgroundColor = '#f0fdf4';
-              refreshButton.style.borderColor = '#22c55e';
-              refreshButton.style.color = '#166534';
-              
-              setTimeout(() => {
-                refreshButton.innerHTML = originalText;
-                refreshButton.style.backgroundColor = '#f8fafc';
-                refreshButton.style.borderColor = 'var(--border)';
-                refreshButton.style.color = 'var(--text-secondary)';
-                refreshButton.disabled = false;
-              }, 2000);
-            } catch (error) {
-              refreshButton.innerHTML = '<i class="fas fa-exclamation-triangle"></i> エラー';
-              refreshButton.style.backgroundColor = '#fef2f2';
-              refreshButton.style.borderColor = '#ef4444';
-              refreshButton.style.color = '#dc2626';
-              
-              setTimeout(() => {
-                refreshButton.innerHTML = originalText;
-                refreshButton.style.backgroundColor = '#f8fafc';
-                refreshButton.style.borderColor = 'var(--border)';
-                refreshButton.style.color = 'var(--text-secondary)';
-                refreshButton.disabled = false;
-              }, 3000);
-            }
-          });
-          
-          nameSelectGroup.appendChild(refreshButton);
-        }
-
-        // リアルタイム更新を開始
-        startRealtimeUpdates() {
-          // 2分ごとに自動更新
-          this.pollInterval = setInterval(async () => {
-            console.log('定期更新実行中...');
-            await this.updateNameOptions();
-          }, 2 * 60 * 1000); // 2分間隔
-          
-          console.log('リアルタイム更新を開始しました（2分間隔）');
-        }
-
-        // リアルタイム更新を停止
-        stopRealtimeUpdates() {
-          if (this.pollInterval) {
-            clearInterval(this.pollInterval);
-            this.pollInterval = null;
-            console.log('リアルタイム更新を停止しました');
-          }
-        }
+  // 提出済み医師リストを取得
+  async getSubmittedDoctors() {
+    if (this.isLoading) return [];
+    
+    try {
+      this.isLoading = true;
+      console.log('提出状況を取得中...');
+      
+      const response = await fetch(`${this.API_URL}?action=getSubmitted&timestamp=${Date.now()}`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
+      
+      const data = await response.json();
+      console.log('提出状況データ:', data);
+      
+      // フィルタリング情報をログ出力
+      if (data.ignoredDoctors) {
+        console.log('無視対象医師:', data.ignoredDoctors);
+      }
+      if (data.defaultSubmitted) {
+        console.log('デフォルト提出済み医師:', data.defaultSubmitted);
+      }
+      if (data.filteredCount !== undefined && data.finalCount !== undefined) {
+        console.log(`フィルタリング: ${data.filteredCount}件 → ${data.finalCount}件`);
+      }
+      
+      return data.submitted || [];
+    } catch (error) {
+      console.error('提出状況取得エラー:', error);
+      // エラー時はデフォルト提出済みのみ返す
+      console.log('エラー時デフォルト提出済み医師を返します:', this.DEFAULT_SUBMITTED_DOCTORS);
+      return this.DEFAULT_SUBMITTED_DOCTORS;
+    } finally {
+      this.isLoading = false;
+    }
+  }
+
+  // 提出を記録（B列に追加）
+  async recordSubmission(doctorName) {
+    if (this.isLoading) return { success: false };
+    
+    try {
+      this.isLoading = true;
+      console.log('提出を記録中:', doctorName);
+      
+      // 無視対象の医師名はスプレッドシートに記録しない
+      if (this.IGNORED_DOCTORS.includes(doctorName)) {
+        console.log('無視対象の医師名のため記録しません:', doctorName);
+        return {
+          status: 'ignored',
+          message: '無視対象の医師名です',
+          success: true // 処理としては成功
+        };
+      }
+      
+      // デフォルト提出済み医師はスプレッドシートに記録しない
+      if (this.DEFAULT_SUBMITTED_DOCTORS.includes(doctorName)) {
+        console.log('デフォルト提出済み医師のため記録しません:', doctorName);
+        return {
+          status: 'default_submitted',
+          message: 'デフォルト提出済み医師です',
+          success: true // 処理としては成功
+        };
+      }
+      
+      const response = await fetch(this.API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'recordSubmission',
+          doctor: doctorName
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      console.log('提出記録結果:', result);
+      
+      return result;
+    } catch (error) {
+      console.error('提出記録エラー:', error);
+      return { success: false, error: error.toString() };
+    } finally {
+      this.isLoading = false;
+    }
+  }
+
+  // 名前選択肢をリアルタイム更新（フィルタリング対応）
+  async updateNameOptions() {
+    try {
+      const submittedDoctors = await this.getSubmittedDoctors();
+      const nameSelect = document.getElementById('name-select');
+      
+      if (!nameSelect) return;
+      
+      console.log('名前選択肢更新開始 - 提出済み医師:', submittedDoctors);
+      
+      // 全ての option 要素を更新
+      const options = nameSelect.querySelectorAll('option');
+      
+      options.forEach(option => {
+        if (option.value && option.value !== 'その他') {
+          const doctorName = option.value;
+          
+          // 既存の「（提出済み）」表示をリセット
+          let originalText = option.textContent;
+          if (originalText.includes('（提出済み）')) {
+            originalText = originalText.replace('（提出済み）', '');
+          }
+          option.textContent = originalText;
+          option.style.color = '';
+          option.style.fontStyle = '';
+          
+          // 提出済みかチェック
+          const isSubmitted = submittedDoctors.includes(doctorName);
+          const isDefault = this.DEFAULT_SUBMITTED_DOCTORS.includes(doctorName);
+          const isIgnored = this.IGNORED_DOCTORS.includes(doctorName);
+          
+          // デバッグ情報
+          console.log(`${doctorName}: 提出済み=${isSubmitted}, デフォルト=${isDefault}, 無視=${isIgnored}`);
+          
+          if (isSubmitted) {
+            // 提出済みの場合、「（提出済み）」を追加
+            option.textContent = originalText.replace('先生', '先生（提出済み）');
+            option.style.color = '#94a3b8'; // グレーアウト
+            option.style.fontStyle = 'italic';
+            
+            // デフォルト医師の場合は少し違う色にする（オプション）
+            if (isDefault) {
+              option.style.color = '#059669'; // 緑系
+              console.log(`${doctorName}はデフォルト提出済み医師として表示`);
+            }
+          }
+        }
+      });
+      
+      // 提出済み状況をページに表示（フィルタリング情報付き）
+      this.displaySubmissionStatus(submittedDoctors);
+      
+      console.log('提出済み医師リスト更新完了:', submittedDoctors);
+    } catch (error) {
+      console.error('名前選択肢更新エラー:', error);
+    }
+  }
+
+  // 提出状況を画面に表示（フィルタリング情報付き）
+  displaySubmissionStatus(submittedDoctors) {
+    // 既存の状況表示を削除
+    const existingStatus = document.getElementById('submission-status');
+    if (existingStatus) {
+      existingStatus.remove();
+    }
+    
+    if (submittedDoctors.length > 0) {
+      const statusDiv = document.createElement('div');
+      statusDiv.id = 'submission-status';
+      statusDiv.className = 'submission-status';
+      
+      // 提出済み医師を分類
+      const defaultSubmitted = submittedDoctors.filter(doctor => 
+        this.DEFAULT_SUBMITTED_DOCTORS.includes(doctor)
+      );
+      const normalSubmitted = submittedDoctors.filter(doctor => 
+        !this.DEFAULT_SUBMITTED_DOCTORS.includes(doctor)
+      );
+      
+      let detailsHtml = '';
+      
+      if (normalSubmitted.length > 0) {
+        detailsHtml += `<div>📝 新規提出（${normalSubmitted.length}名）: ${normalSubmitted.join('、')}</div>`;
+      }
+      
+      if (defaultSubmitted.length > 0) {
+        detailsHtml += `<div style="color: #059669;">🎯 デフォルト提出済み（${defaultSubmitted.length}名）: ${defaultSubmitted.join('、')}</div>`;
+      }
+      
+      statusDiv.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+          <i class="fas fa-info-circle"></i>
+          <strong>提出状況</strong>
+          <span style="margin-left: auto; font-size: 0.75rem;">${new Date().toLocaleTimeString()}</span>
+        </div>
+        ${detailsHtml}
+        <div style="margin-top: 0.5rem; font-size: 0.8rem; color: #64748b;">
+          総計: ${submittedDoctors.length}名が提出済み
+        </div>
+      `;
+      
+      // 名前選択の下に挿入
+      const nameSelect = document.getElementById('name-select');
+      nameSelect.parentNode.appendChild(statusDiv);
+    }
+  }
+
+  // 手動更新ボタンを追加
+  addRefreshButton() {
+    const nameSelectGroup = document.getElementById('name-select').parentNode;
+    
+    // 既存のボタンを削除
+    const existingButton = document.getElementById('refresh-submission-btn');
+    if (existingButton) {
+      existingButton.remove();
+    }
+    
+    const refreshButton = document.createElement('button');
+    refreshButton.id = 'refresh-submission-btn';
+    refreshButton.type = 'button';
+    refreshButton.className = 'refresh-submission-btn';
+    refreshButton.innerHTML = '<i class="fas fa-sync-alt"></i> 提出状況を更新';
+    
+    refreshButton.addEventListener('click', async () => {
+      const icon = refreshButton.querySelector('i');
+      const originalText = refreshButton.innerHTML;
+      
+      try {
+        refreshButton.disabled = true;
+        refreshButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 更新中...';
+        
+        await this.updateNameOptions();
+        
+        refreshButton.innerHTML = '<i class="fas fa-check"></i> 更新完了';
+        refreshButton.style.backgroundColor = '#f0fdf4';
+        refreshButton.style.borderColor = '#22c55e';
+        refreshButton.style.color = '#166534';
+        
+        setTimeout(() => {
+          refreshButton.innerHTML = originalText;
+          refreshButton.style.backgroundColor = '#f8fafc';
+          refreshButton.style.borderColor = 'var(--border)';
+          refreshButton.style.color = 'var(--text-secondary)';
+          refreshButton.disabled = false;
+        }, 2000);
+      } catch (error) {
+        refreshButton.innerHTML = '<i class="fas fa-exclamation-triangle"></i> エラー';
+        refreshButton.style.backgroundColor = '#fef2f2';
+        refreshButton.style.borderColor = '#ef4444';
+        refreshButton.style.color = '#dc2626';
+        
+        setTimeout(() => {
+          refreshButton.innerHTML = originalText;
+          refreshButton.style.backgroundColor = '#f8fafc';
+          refreshButton.style.borderColor = 'var(--border)';
+          refreshButton.style.color = 'var(--text-secondary)';
+          refreshButton.disabled = false;
+        }, 3000);
+      }
+    });
+    
+    nameSelectGroup.appendChild(refreshButton);
+  }
+
+  // リアルタイム更新を開始
+  startRealtimeUpdates() {
+    // 2分ごとに自動更新（アクティブタブのみ）
+    this.pollInterval = setInterval(async () => {
+      if (!document.hidden) {
+        console.log('定期更新実行中（フィルタリング対応）...');
+        await this.updateNameOptions();
+      } else {
+        console.log('バックグラウンドタブのため更新スキップ');
+      }
+    }, 2 * 60 * 1000); // 2分間隔
+    
+    console.log('リアルタイム更新を開始しました（2分間隔、フィルタリング対応）');
+  }
+
+  // リアルタイム更新を停止
+  stopRealtimeUpdates() {
+    if (this.pollInterval) {
+      clearInterval(this.pollInterval);
+      this.pollInterval = null;
+      console.log('リアルタイム更新を停止しました');
+    }
+  }
+}
 
       // 提出状況トラッカーを初期化
       const submissionTracker = new SubmissionTracker();
